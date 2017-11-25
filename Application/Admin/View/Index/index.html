@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>查询</title>
+</head>
+<body>
+<form>
+<table width="1000" border="1" align="center">
+    <div>  <a href="__URL__/add">添加</a></div>
+<tr>
+   <td>文章id</td>
+   <td>文章标题</td>
+   <td>文章分类</td>
+   <td>文章内容</td>
+
+</tr>
+<volist name="list" id="vo" >
+
+    <tr>
+        <td>{$vo.aid}</td>
+        <td>{$vo.title}</td>
+        <td>{$vo.author}</td>
+        <td>{$vo.content}</td>
+        <td>
+            <a href="__URL__/edit/aid/{$vo.aid}">修改</a>
+            <a href="__URL__/del/aid/{$vo.aid}">删除</a>
+        </td>
+    </tr>
+
+</volist>
+
+
+</table>
+
+</form>
+
+</body>
+</html>
