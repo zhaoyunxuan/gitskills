@@ -88,14 +88,6 @@ class Upyun{
     }
 
     /**
-     * 获取最后一次上传错误信息
-     * @return string 错误信息
-     */
-    public function getError(){
-        return $this->error;
-    }
-
-    /**
      * 请求又拍云服务器
      * @param  string   $path    请求的PATH
      * @param  string   $method  请求方法
@@ -174,6 +166,19 @@ class Upyun{
     }
 
     /**
+     * 生成请求签名
+     * @param  string  $method 请求方法
+     * @param  string  $uri    请求URI
+     * @param  string  $date   请求时间
+     * @param  integer $length 请求内容大小
+     * @return string          请求签名
+     */
+    private function sign($method, $uri, $date, $length){
+        $sign = "{$method}&{$uri}&{$date}&{$length}&{$this->config['password']}";
+        return 'UpYun ' . $this->config['username'] . ':' . md5($sign);
+    }
+
+    /**
      * 获取响应数据
      * @param  string $text 响应头字符串
      * @return array        响应数据列表
@@ -192,19 +197,6 @@ class Upyun{
     }
 
     /**
-     * 生成请求签名
-     * @param  string  $method 请求方法
-     * @param  string  $uri    请求URI
-     * @param  string  $date   请求时间
-     * @param  integer $length 请求内容大小
-     * @return string          请求签名
-     */
-    private function sign($method, $uri, $date, $length){
-        $sign = "{$method}&{$uri}&{$date}&{$length}&{$this->config['password']}";
-        return 'UpYun ' . $this->config['username'] . ':' . md5($sign);
-    }
-
-    /**
      * 获取请求错误信息
      * @param  string $header 请求返回头信息
      */
@@ -213,6 +205,14 @@ class Upyun{
         list($v, $code, $message) = explode(" ", $status, 3);
         $message = is_null($message) ? 'File Not Found' : "[{$status}]:{$message}";
         $this->error = $message;
+    }
+
+    /**
+     * 获取最后一次上传错误信息
+     * @return string 错误信息
+     */
+    public function getError(){
+        return $this->error;
     }
 
 }

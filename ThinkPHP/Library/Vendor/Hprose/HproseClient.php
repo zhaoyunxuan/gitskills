@@ -27,18 +27,40 @@ abstract class HproseClient {
     protected $url;
     private $filter;
     private $simple;
-    protected abstract function send($request);
+
     public function __construct($url = '') {
         $this->useService($url);
         $this->filter = NULL;
         $this->simple = false;
     }
+
     public function useService($url = '', $namespace = '') {
         if ($url) {
             $this->url = $url;
         }
         return new HproseProxy($this, $namespace);
     }
+
+    public function getFilter() {
+        return $this->filter;
+    }
+
+    public function setFilter($filter) {
+        $this->filter = $filter;
+    }
+
+    public function getSimpleMode() {
+        return $this->simple;
+    }
+
+    public function setSimpleMode($simple = true) {
+        $this->simple = $simple;
+    }
+
+    public function __call($function, $arguments) {
+        return $this->invoke($function, $arguments);
+    }
+
     public function invoke($functionName, &$arguments = array(), $byRef = false, $resultMode = HproseResultMode::Normal, $simple = NULL) {
         if ($simple === NULL) $simple = $this->simple;
         $stream = new HproseStringStream(HproseTags::TagCall);
@@ -96,21 +118,9 @@ abstract class HproseClient {
         }
         return $result;
     }
-    public function getFilter() {
-        return $this->filter;
-    }
-    public function setFilter($filter) {
-        $this->filter = $filter;
-    }
-    public function getSimpleMode() {
-        return $this->simple;
-    }
-    public function setSimpleMode($simple = true) {
-        $this->simple = $simple;
-    }
-    public function __call($function, $arguments) {
-        return $this->invoke($function, $arguments);
-    }
+
+    protected abstract function send($request);
+
     public function __get($name) {
         return new HproseProxy($this, $name . '_');
     }

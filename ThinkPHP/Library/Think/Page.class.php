@@ -62,15 +62,6 @@ class Page{
     }
 
     /**
-     * 生成链接URL
-     * @param  integer $page 页码
-     * @return string
-     */
-    private function url($page){
-        return str_replace(urlencode('[PAGE]'), $page, $this->url);
-    }
-
-    /**
      * 组装分页链接
      * @return string
      */
@@ -141,5 +132,14 @@ class Page{
             array($this->config['header'], $this->nowPage, $up_page, $down_page, $the_first, $link_page, $the_end, $this->totalRows, $this->totalPages),
             $this->config['theme']);
         return "<div>{$page_str}</div>";
+    }
+
+    /**
+     * 生成链接URL
+     * @param  integer $page 页码
+     * @return string
+     */
+    private function url($page){
+        return str_replace(urlencode('[PAGE]'), $page, $this->url);
     }
 }

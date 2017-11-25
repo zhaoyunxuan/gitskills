@@ -331,6 +331,24 @@
 			echo '</pre></td></tr></table></body></html>';
 		}
 
+		/**
+		* Highlight HTML Source
+		*
+		* @param string $code HTML Source
+		* @return string Hightlighte HTML Source
+		* @access private
+		* @desc Highlight HTML Source
+		*/
+		function highlight_html ( $code )
+		{
+			$code  =  htmlentities($code);
+			$code  =  preg_replace('/([a-zA-Z_]+)=/',  '<font color="#FF0000">$1=</font>',  $code);
+			$code  =  preg_replace('/(&lt;[\/a-zA-Z0-9&;]+)/',  '<font color="#0000FF">$1</font>',  $code);
+			$code  =  str_replace('&lt;!--',  '<font color="#008080">&lt;!--',  $code);
+			$code  =  str_replace('--&gt;',  '--&gt;</font>',  $code);
+			$code  =  preg_replace('/[\r\n]+/',  "\n",  $code);
+			return $code;
+		}
 
 		/**
 		* Insert Hide/Show Layer Switch
@@ -351,7 +369,6 @@
 			return $ret;
 		}
 
-
 		/**
 		* Create Title Text
 		*
@@ -370,7 +387,6 @@
 				return $ret;
 			}
 		}
-
 
 		/**
 		* Recursive Variable Display Output
@@ -398,7 +414,6 @@
 	            return $ret;
 	        }
 	    }
-
 
 		/**
 		* Splits Template-Style Variable Names into an Array-Name/Key-Name Components
@@ -431,26 +446,6 @@
 				$ret = array('_obj', $tag);
 				return $ret;
 			}
-		}
-
-
-		/**
-		* Highlight HTML Source
-		*
-		* @param string $code HTML Source
-		* @return string Hightlighte HTML Source
-		* @access private
-		* @desc Highlight HTML Source
-		*/
-		function highlight_html ( $code )
-		{
-			$code  =  htmlentities($code);
-			$code  =  preg_replace('/([a-zA-Z_]+)=/',  '<font color="#FF0000">$1=</font>',  $code);
-			$code  =  preg_replace('/(&lt;[\/a-zA-Z0-9&;]+)/',  '<font color="#0000FF">$1</font>',  $code);
-			$code  =  str_replace('&lt;!--',  '<font color="#008080">&lt;!--',  $code);
-			$code  =  str_replace('--&gt;',  '--&gt;</font>',  $code);
-			$code  =  preg_replace('/[\r\n]+/',  "\n",  $code);
-			return $code;
 		}
 	}
 ?>

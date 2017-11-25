@@ -83,6 +83,52 @@ class Smarty_Internal_Config {
     }
 
     /**
+     * Returns the compiled config file
+     *
+     * It checks if the config file must be compiled or just read the compiled version
+     *
+     * @return string the compiled config file
+     */
+    public function getCompiledConfig()
+    {
+        if ($this->compiled_config === null) {
+            // see if template needs compiling.
+            if ($this->mustCompile()) {
+                $this->compileConfigSource();
+            } else {
+                $this->compiled_config = file_get_contents($this->getCompiledFilepath());
+            }
+        }
+        return $this->compiled_config;
+    }
+
+    /**
+     * Returns if the current config file must be compiled
+     *
+     * It does compare the timestamps of config source and the compiled config and checks the force compile configuration
+     *
+     * @return boolean true if the file must be compiled
+     */
+    public function mustCompile()
+    {
+        return $this->mustCompile === null ?
+            $this->mustCompile = ($this->smarty->force_compile || $this->getCompiledTimestamp () === false || $this->smarty->compile_check && $this->getCompiledTimestamp () < $this->source->timestamp):
+            $this->mustCompile;
+    }
+
+    /**
+     * Returns the timpestamp of the compiled file
+     *
+     * @return integer the file timestamp
+     */
+    public function getCompiledTimestamp()
+    {
+        return $this->compiled_timestamp === null
+            ? ($this->compiled_timestamp = (file_exists($this->getCompiledFilepath())) ? filemtime($this->getCompiledFilepath()) : false)
+            : $this->compiled_timestamp;
+    }
+
+    /**
      * Returns the compiled  filepath
      *
      * @return string the compiled filepath
@@ -118,52 +164,6 @@ class Smarty_Internal_Config {
         }
         $_compile_dir = $this->smarty->getCompileDir();
         return $_compile_dir . $_filepath . '.' . basename($this->source->name) . '.config' . '.php';
-    }
-
-    /**
-     * Returns the timpestamp of the compiled file
-     *
-     * @return integer the file timestamp
-     */
-    public function getCompiledTimestamp()
-    {
-        return $this->compiled_timestamp === null
-            ? ($this->compiled_timestamp = (file_exists($this->getCompiledFilepath())) ? filemtime($this->getCompiledFilepath()) : false)
-            : $this->compiled_timestamp;
-    }
-
-    /**
-     * Returns if the current config file must be compiled
-     *
-     * It does compare the timestamps of config source and the compiled config and checks the force compile configuration
-     *
-     * @return boolean true if the file must be compiled
-     */
-    public function mustCompile()
-    {
-        return $this->mustCompile === null ?
-            $this->mustCompile = ($this->smarty->force_compile || $this->getCompiledTimestamp () === false || $this->smarty->compile_check && $this->getCompiledTimestamp () < $this->source->timestamp):
-            $this->mustCompile;
-    }
-
-    /**
-     * Returns the compiled config file
-     *
-     * It checks if the config file must be compiled or just read the compiled version
-     *
-     * @return string the compiled config file
-     */
-    public function getCompiledConfig()
-    {
-        if ($this->compiled_config === null) {
-            // see if template needs compiling.
-            if ($this->mustCompile()) {
-                $this->compileConfigSource();
-            } else {
-                $this->compiled_config = file_get_contents($this->getCompiledFilepath());
-            }
-        }
-        return $this->compiled_config;
     }
 
     /**
@@ -256,25 +256,6 @@ class Smarty_Internal_Config {
     }
 
     /**
-     * set Smarty property in template context
-     *
-     * @param string $property_name property name
-     * @param mixed  $value         value
-     * @throws SmartyException if $property_name is not valid
-     */
-    public function __set($property_name, $value)
-    {
-        switch ($property_name) {
-            case 'source':
-            case 'compiled':
-                $this->$property_name = $value;
-                return;
-        }
-
-        throw new SmartyException("invalid config property '$property_name'.");
-    }
-
-    /**
      * get Smarty property in template context
      *
      * @param string $property_name property name
@@ -296,6 +277,25 @@ class Smarty_Internal_Config {
         }
 
         throw new SmartyException("config attribute '$property_name' does not exist.");
+    }
+
+    /**
+     * set Smarty property in template context
+     *
+     * @param string $property_name property name
+     * @param mixed  $value         value
+     * @throws SmartyException if $property_name is not valid
+     */
+    public function __set($property_name, $value)
+    {
+        switch ($property_name) {
+            case 'source':
+            case 'compiled':
+                $this->$property_name = $value;
+                return;
+        }
+
+        throw new SmartyException("invalid config property '$property_name'.");
     }
 
 }

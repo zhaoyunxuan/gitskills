@@ -48,6 +48,34 @@ class Xxtea {
         return self::long2str($v, false);
     }
 
+    private static function str2long($s, $w) {
+        $v = unpack("V*", $s. str_repeat("\0", (4 - strlen($s) % 4) & 3));
+        $v = array_values($v);
+        if ($w) {
+            $v[count($v)] = strlen($s);
+        }
+        return $v;
+    }
+
+    private static function int32($n) {
+        while ($n >= 2147483648) $n -= 4294967296;
+        while ($n <= -2147483649) $n += 4294967296;
+        return (int)$n;
+    }
+
+    private static function long2str($v, $w) {
+        $len = count($v);
+        $s = array();
+        for ($i = 0; $i < $len; $i++) {
+            $s[$i] = pack("V", $v[$i]);
+        }
+        if ($w) {
+            return substr(join('', $s), 0, $v[$len - 1]);
+        }else{
+            return join('', $s);
+        }
+    }
+
     /**
      * 解密字符串
      * @param string $str 字符串
@@ -83,34 +111,6 @@ class Xxtea {
         }
         $data   = substr($data,10);
         return $data;
-    }
-
-    private static function long2str($v, $w) {
-        $len = count($v);
-        $s = array();
-        for ($i = 0; $i < $len; $i++) {
-            $s[$i] = pack("V", $v[$i]);
-        }
-        if ($w) {
-            return substr(join('', $s), 0, $v[$len - 1]);
-        }else{
-            return join('', $s);
-        }
-    }
-
-    private static function str2long($s, $w) {
-        $v = unpack("V*", $s. str_repeat("\0", (4 - strlen($s) % 4) & 3));
-        $v = array_values($v);
-        if ($w) {
-            $v[count($v)] = strlen($s);
-        }
-        return $v;
-    }
-
-    private static function int32($n) {
-        while ($n >= 2147483648) $n -= 4294967296;
-        while ($n <= -2147483649) $n += 4294967296;
-        return (int)$n;
     }
 
 }

@@ -9,6 +9,11 @@
 |                                                          |
 \**********************************************************/
 
+interface HproseFilter {
+    function inputFilter($data);
+    function outputFilter($data);
+}
+
 /**********************************************************\
  *                                                        *
  * HproseCommon.php                                       *
@@ -28,11 +33,6 @@ class HproseResultMode {
 }
 
 class HproseException extends Exception {}
-
-interface HproseFilter {
-    function inputFilter($data);
-    function outputFilter($data);    
-}
 
 class HproseDate {
     public $year;
@@ -85,6 +85,21 @@ class HproseDate {
                 throw new HproseException('Unexpected arguments');
         }
     }
+
+    public static function isValidDate($year, $month, $day) {
+        if (($year >= 1) && ($year <= 9999)) {
+            return checkdate($month, $day, $year);
+        }
+        return false;
+    }
+
+    public static function daysInMonth($year, $month) {
+        if (($month < 1) || ($month > 12)) {
+            return false;
+        }
+        return cal_days_in_month(CAL_GREGORIAN, $month, $year);
+    }
+
     public function addDays($days) {
         if (!is_int($days)) return false;
         $year = $this->year;
@@ -181,6 +196,7 @@ class HproseDate {
         $this->day = $day;
         return true;
     }
+
     public function addMonths($months) {
         if (!is_int($months)) return false;
         if ($months == 0) return true;
@@ -203,6 +219,7 @@ class HproseDate {
             return false;
         }
     }
+
     public function addYears($years) {
         if (!is_int($years)) return false;
         if ($years == 0) return true;
@@ -211,40 +228,27 @@ class HproseDate {
         $this->year = $year;
         return true;
     }
+
     public function timestamp() {
         if ($this->utc) {
             return gmmktime(0, 0, 0, $this->month, $this->day, $this->year);
         }
         else {
-            return mktime(0, 0, 0, $this->month, $this->day, $this->year);            
+            return mktime(0, 0, 0, $this->month, $this->day, $this->year);
         }
     }
+
+    public function __toString() {
+        return $this->toString();
+    }
+
     public function toString($fullformat = true) {
         $format = ($fullformat ? '%04d-%02d-%02d': '%04d%02d%02d');
         $str = sprintf($format, $this->year, $this->month, $this->day);
         if ($this->utc) {
             $str .= 'Z';
         }
-        return $str;        
-    }
-    public function __toString() {
-        return $this->toString();
-    }
-
-    public static function isLeapYear($year) {
-        return (($year % 4) == 0) ? (($year % 100) == 0) ? (($year % 400) == 0) : true : false;
-    }
-    public static function daysInMonth($year, $month) {
-        if (($month < 1) || ($month > 12)) {
-            return false;
-        }
-        return cal_days_in_month(CAL_GREGORIAN, $month, $year);
-    }
-    public static function isValidDate($year, $month, $day) {
-        if (($year >= 1) && ($year <= 9999)) {
-            return checkdate($month, $day, $year);
-        }
-        return false;
+        return $str;
     }
 
     public function dayOfWeek() {
@@ -263,6 +267,7 @@ class HproseDate {
         $d += $m < 3 ? $y-- : $y - 2;
         return ((int)(23 * $m / 9) + $d + 4 + (int)($y / 4) - (int)($y / 100) + (int)($y / 400)) % 7;
     }
+
     public function dayOfYear() {
         static $daysToMonth365 = array(0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365);
         static $daysToMonth366 = array(0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366);
@@ -280,6 +285,10 @@ class HproseDate {
         }
         $days = self::isLeapYear($y) ? $daysToMonth365 : $daysToMonth366;
         return $days[$m - 1] + $d;
+    }
+
+    public static function isLeapYear($year) {
+        return (($year % 4) == 0) ? (($year % 100) == 0) ? (($year % 400) == 0) : true : false;
     }
 }
 
@@ -343,6 +352,14 @@ class HproseTime {
                 throw new HproseException('Unexpected arguments');
         }
     }
+
+    public static function isValidTime($hour, $minute, $second, $microsecond = 0) {
+        return !(($hour < 0) || ($hour > 23) ||
+            ($minute < 0) || ($minute > 59) ||
+            ($second < 0) || ($second > 59) ||
+            ($microsecond < 0) || ($microsecond > 999999));
+    }
+
     public function timestamp() {
         if ($this->utc) {
             return gmmktime($this->hour, $this->minute, $this->second) +
@@ -353,6 +370,11 @@ class HproseTime {
                    ($this->microsecond / 1000000);
         }
     }
+
+    public function __toString() {
+        return $this->toString();
+    }
+
     public function toString($fullformat = true) {
         if ($this->microsecond == 0) {
             $format = ($fullformat ? '%02d:%02d:%02d': '%02d%02d%02d');
@@ -364,21 +386,12 @@ class HproseTime {
         }
         else {
             $format = ($fullformat ? '%02d:%02d:%02d.%06d': '%02d%02d%02d.%06d');
-            $str = sprintf($format, $this->hour, $this->minute, $this->second, $this->microsecond);            
+            $str = sprintf($format, $this->hour, $this->minute, $this->second, $this->microsecond);
         }
         if ($this->utc) {
             $str .= 'Z';
         }
         return $str;
-    }
-    public function __toString() {
-        return $this->toString();
-    }
-    public static function isValidTime($hour, $minute, $second, $microsecond = 0) {
-        return !(($hour < 0) || ($hour > 23) ||
-            ($minute < 0) || ($minute > 59) ||
-            ($second < 0) || ($second > 59) ||
-            ($microsecond < 0) || ($microsecond > 999999));
     }
 }
 
@@ -499,6 +512,10 @@ class HproseDateTime extends HproseDate {
         }
     }
     
+    public static function isValidTime($hour, $minute, $second, $microsecond = 0) {
+        return HproseTime::isValidTime($hour, $minute, $second, $microsecond);
+    }
+    
     public function addMicroseconds($microseconds) {
         if (!is_int($microseconds)) return false;
         if ($microseconds == 0) return true;
@@ -516,7 +533,7 @@ class HproseDateTime extends HproseDate {
             return false;
         }
     }
-    
+
     public function addSeconds($seconds) {
         if (!is_int($seconds)) return false;
         if ($seconds == 0) return true;
@@ -534,6 +551,7 @@ class HproseDateTime extends HproseDate {
             return false;
         }
     }
+
     public function addMinutes($minutes) {
         if (!is_int($minutes)) return false;
         if ($minutes == 0) return true;
@@ -551,6 +569,7 @@ class HproseDateTime extends HproseDate {
             return false;
         }
     }
+
     public function addHours($hours) {
         if (!is_int($hours)) return false;
         if ($hours == 0) return true;
@@ -568,6 +587,7 @@ class HproseDateTime extends HproseDate {
             return false;
         }
     }
+
     public function after($when) {
         if (!($when instanceof HproseDateTime)) {
             $when = new HproseDateTime($when);
@@ -589,6 +609,28 @@ class HproseDateTime extends HproseDate {
         if ($this->microsecond > $when->microsecond) return true;
         return false;
     }
+
+    public function timestamp() {
+        if ($this->utc) {
+            return gmmktime($this->hour,
+                            $this->minute,
+                            $this->second,
+                            $this->month,
+                            $this->day,
+                            $this->year) +
+                   ($this->microsecond / 1000000);
+        }
+        else {
+            return mktime($this->hour,
+                          $this->minute,
+                          $this->second,
+                          $this->month,
+                          $this->day,
+                          $this->year) +
+                   ($this->microsecond / 1000000);
+        }
+    }
+
     public function before($when) {
         if (!($when instanceof HproseDateTime)) {
             $when = new HproseDateTime($when);
@@ -610,6 +652,7 @@ class HproseDateTime extends HproseDate {
         if ($this->microsecond > $when->microsecond) return false;
         return false;
     }
+
     public function equals($when) {
         if (!($when instanceof HproseDateTime)) {
             $when = new HproseDateTime($when);
@@ -623,26 +666,11 @@ class HproseDateTime extends HproseDate {
             ($this->second == $when->second) &&
             ($this->microsecond == $when->microsecond));
     }
-    public function timestamp() {
-        if ($this->utc) {
-            return gmmktime($this->hour,
-                            $this->minute,
-                            $this->second,
-                            $this->month,
-                            $this->day,
-                            $this->year) +
-                   ($this->microsecond / 1000000);
-        }
-        else {
-            return mktime($this->hour,
-                          $this->minute,
-                          $this->second,
-                          $this->month,
-                          $this->day,
-                          $this->year) +
-                   ($this->microsecond / 1000000);
-        }
+
+    public function __toString() {
+        return $this->toString();
     }
+
     public function toString($fullformat = true) {
         if ($this->microsecond == 0) {
             $format = ($fullformat ? '%04d-%02d-%02dT%02d:%02d:%02d'
@@ -658,25 +686,19 @@ class HproseDateTime extends HproseDate {
                            $this->year, $this->month, $this->day,
                            $this->hour, $this->minute, $this->second,
                            (int)($this->microsecond / 1000));
-        }        
+        }
         else {
             $format = ($fullformat ? '%04d-%02d-%02dT%02d:%02d:%02d.%06d'
                                    : '%04d%02d%02dT%02d%02d%02d.%06d');
             $str = sprintf($format,
                            $this->year, $this->month, $this->day,
                            $this->hour, $this->minute, $this->second,
-                           $this->microsecond);            
+                           $this->microsecond);
         }
         if ($this->utc) {
             $str .= 'Z';
         }
         return $str;
-    }
-    public function __toString() {
-        return $this->toString();
-    }
-    public static function isValidTime($hour, $minute, $second, $microsecond = 0) {
-        return HproseTime::isValidTime($hour, $minute, $second, $microsecond);
     }
 }
 

@@ -29,23 +29,6 @@ class Cache {
     protected $options = array();
 
     /**
-     * 连接缓存
-     * @access public
-     * @param string $type 缓存类型
-     * @param array $options  配置数组
-     * @return object
-     */
-    public function connect($type='',$options=array()) {
-        if(empty($type))  $type = C('DATA_CACHE_TYPE');
-        $class  =   strpos($type,'\\')? $type : 'Think\\Cache\\Driver\\'.ucwords(strtolower($type));            
-        if(class_exists($class))
-            $cache = new $class($options);
-        else
-            E(L('_CACHE_TYPE_INVALID_').':'.$type);
-        return $cache;
-    }
-
-    /**
      * 取得缓存类实例
      * @static
      * @access public
@@ -61,6 +44,23 @@ class Cache {
 		return $_instance[$guid];
     }
 
+    /**
+     * 连接缓存
+     * @access public
+     * @param string $type 缓存类型
+     * @param array $options  配置数组
+     * @return object
+     */
+    public function connect($type='',$options=array()) {
+        if(empty($type))  $type = C('DATA_CACHE_TYPE');
+        $class  =   strpos($type,'\\')? $type : 'Think\\Cache\\Driver\\'.ucwords(strtolower($type));
+        if(class_exists($class))
+            $cache = new $class($options);
+        else
+            E(L('_CACHE_TYPE_INVALID_').':'.$type);
+        return $cache;
+    }
+
     public function __get($name) {
         return $this->get($name);
     }
@@ -72,12 +72,13 @@ class Cache {
     public function __unset($name) {
         $this->rm($name);
     }
-    public function setOptions($name,$value) {
-        $this->options[$name]   =   $value;
-    }
 
     public function getOptions($name) {
         return $this->options[$name];
+    }
+
+    public function setOptions($name,$value) {
+        $this->options[$name]   =   $value;
     }
 
     /**
@@ -86,7 +87,18 @@ class Cache {
      * @param string $key 队列名
      * @return mixed
      */
-    // 
+    //
+    public function __call($method,$args){
+        //调用缓存类型自己的方法
+        if(method_exists($this->handler, $method)){
+           return call_user_func_array(array($this->handler,$method), $args);
+        }else{
+            E(__CLASS__.':'.$method.L('_METHOD_NOT_EXIST_'));
+            return;
+        }
+    }
+    
+
     protected function queue($key) {
         static $_handler = array(
             'file'  =>  array('F','F'),
@@ -113,15 +125,5 @@ class Cache {
             }
         }
         return $fun[1]($queue_name,$value);
-    }
-    
-    public function __call($method,$args){
-        //调用缓存类型自己的方法
-        if(method_exists($this->handler, $method)){
-           return call_user_func_array(array($this->handler,$method), $args);
-        }else{
-            E(__CLASS__.':'.$method.L('_METHOD_NOT_EXIST_'));
-            return;
-        }
     }
 }

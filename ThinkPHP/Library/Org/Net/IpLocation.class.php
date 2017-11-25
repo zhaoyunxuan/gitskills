@@ -71,71 +71,6 @@ class IpLocation {
     }
 
     /**
-     * 返回读取的3个字节的长整型数
-     *
-     * @access private
-     * @return int
-     */
-    private function getlong3() {
-        //将读取的little-endian编码的3个字节转化为长整型数
-        $result = unpack('Vlong', fread($this->fp, 3).chr(0));
-        return $result['long'];
-    }
-
-    /**
-     * 返回压缩后可进行比较的IP地址
-     *
-     * @access private
-     * @param string $ip
-     * @return string
-     */
-    private function packip($ip) {
-        // 将IP地址转化为长整型数，如果在PHP5中，IP地址错误，则返回False，
-        // 这时intval将Flase转化为整数-1，之后压缩成big-endian编码的字符串
-        return pack('N', intval(ip2long($ip)));
-    }
-
-    /**
-     * 返回读取的字符串
-     *
-     * @access private
-     * @param string $data
-     * @return string
-     */
-    private function getstring($data = "") {
-        $char = fread($this->fp, 1);
-        while (ord($char) > 0) {        // 字符串按照C格式保存，以\0结束
-            $data  .= $char;             // 将读取的字符连接到给定字符串之后
-            $char   = fread($this->fp, 1);
-        }
-        return $data;
-    }
-
-    /**
-     * 返回地区信息
-     *
-     * @access private
-     * @return string
-     */
-    private function getarea() {
-        $byte = fread($this->fp, 1);    // 标志字节
-        switch (ord($byte)) {
-            case 0:                     // 没有区域信息
-                $area = "";
-                break;
-            case 1:
-            case 2:                     // 标志字节为1或2，表示区域信息被重定向
-                fseek($this->fp, $this->getlong3());
-                $area = $this->getstring();
-                break;
-            default:                    // 否则，表示区域信息没有被重定向
-                $area = $this->getstring($byte);
-                break;
-        }
-        return $area;
-    }
-
-    /**
      * 根据所给 IP 地址或域名返回所在地区信息
      *
      * @access public
@@ -217,6 +152,71 @@ class IpLocation {
             $location['area'] = '';
         }
         return $location;
+    }
+
+    /**
+     * 返回压缩后可进行比较的IP地址
+     *
+     * @access private
+     * @param string $ip
+     * @return string
+     */
+    private function packip($ip) {
+        // 将IP地址转化为长整型数，如果在PHP5中，IP地址错误，则返回False，
+        // 这时intval将Flase转化为整数-1，之后压缩成big-endian编码的字符串
+        return pack('N', intval(ip2long($ip)));
+    }
+
+    /**
+     * 返回读取的3个字节的长整型数
+     *
+     * @access private
+     * @return int
+     */
+    private function getlong3() {
+        //将读取的little-endian编码的3个字节转化为长整型数
+        $result = unpack('Vlong', fread($this->fp, 3).chr(0));
+        return $result['long'];
+    }
+
+    /**
+     * 返回读取的字符串
+     *
+     * @access private
+     * @param string $data
+     * @return string
+     */
+    private function getstring($data = "") {
+        $char = fread($this->fp, 1);
+        while (ord($char) > 0) {        // 字符串按照C格式保存，以\0结束
+            $data  .= $char;             // 将读取的字符连接到给定字符串之后
+            $char   = fread($this->fp, 1);
+        }
+        return $data;
+    }
+
+    /**
+     * 返回地区信息
+     *
+     * @access private
+     * @return string
+     */
+    private function getarea() {
+        $byte = fread($this->fp, 1);    // 标志字节
+        switch (ord($byte)) {
+            case 0:                     // 没有区域信息
+                $area = "";
+                break;
+            case 1:
+            case 2:                     // 标志字节为1或2，表示区域信息被重定向
+                fseek($this->fp, $this->getlong3());
+                $area = $this->getstring();
+                break;
+            default:                    // 否则，表示区域信息没有被重定向
+                $area = $this->getstring($byte);
+                break;
+        }
+        return $area;
     }
 
     /**

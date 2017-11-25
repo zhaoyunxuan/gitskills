@@ -40,34 +40,21 @@ class Shmop extends Cache {
     }
 
     /**
-     * 读取缓存
-     * @access public
-     * @param string $name 缓存变量名
-     * @return mixed
+     * 生成IPC key
+     * @access private
+     * @param string $project 项目标识名
+     * @return integer
      */
-    public function get($name = false) {
-        N('cache_read',1);
-        $id = shmop_open($this->handler, 'c', 0600, 0);
-        if ($id !== false) {
-            $ret = unserialize(shmop_read($id, 0, shmop_size($id)));
-            shmop_close($id);
-
-            if ($name === false) {
-                return $ret;
-            }
-            $name   =   $this->options['prefix'].$name;
-            if(isset($ret[$name])) {
-                $content   =  $ret[$name];
-                if(C('DATA_CACHE_COMPRESS') && function_exists('gzcompress')) {
-                    //启用数据压缩
-                    $content   =   gzuncompress($content);
-                }
-                return $content;
-            }else {
-                return null;
-            }
+    private function _ftok($project) {
+        if (function_exists('ftok'))   return ftok(__FILE__, $project);
+        if(strtoupper(PHP_OS) == 'WINNT'){
+            $s = stat(__FILE__);
+            return sprintf("%u", (($s['ino'] & 0xffff) | (($s['dev'] & 0xff) << 16) |
+            (($project & 0xff) << 24)));
         }else {
-            return false;
+            $filename = __FILE__ . (string) $project;
+            for($key = array(); sizeof($key) < strlen($filename); $key[] = ord(substr($filename, sizeof($key), 1)));
+            return dechex(array_sum($key));
         }
     }
 
@@ -101,37 +88,51 @@ class Shmop extends Cache {
     }
 
     /**
-     * 删除缓存
-     * @access public
+     * 共享锁定
+     * @access private
      * @param string $name 缓存变量名
      * @return boolean
      */
-    public function rm($name) {
-        $lh = $this->_lock();
-        $val = $this->get();
-        if (!is_array($val)) $val = array();
-        $name   =   $this->options['prefix'].$name;
-        unset($val[$name]);
-        $val = serialize($val);
-        return $this->_write($val, $lh);
+    private function _lock() {
+        if (function_exists('sem_get')) {
+            $fp = sem_get($this->handler, 1, 0600, 1);
+            sem_acquire ($fp);
+        } else {
+            $fp = fopen($this->options['temp'].$this->options['prefix'].md5($this->handler), 'w');
+            flock($fp, LOCK_EX);
+        }
+        return $fp;
     }
 
     /**
-     * 生成IPC key
-     * @access private
-     * @param string $project 项目标识名
-     * @return integer
+     * 读取缓存
+     * @access public
+     * @param string $name 缓存变量名
+     * @return mixed
      */
-    private function _ftok($project) {
-        if (function_exists('ftok'))   return ftok(__FILE__, $project);
-        if(strtoupper(PHP_OS) == 'WINNT'){
-            $s = stat(__FILE__);
-            return sprintf("%u", (($s['ino'] & 0xffff) | (($s['dev'] & 0xff) << 16) |
-            (($project & 0xff) << 24)));
+    public function get($name = false) {
+        N('cache_read',1);
+        $id = shmop_open($this->handler, 'c', 0600, 0);
+        if ($id !== false) {
+            $ret = unserialize(shmop_read($id, 0, shmop_size($id)));
+            shmop_close($id);
+
+            if ($name === false) {
+                return $ret;
+            }
+            $name   =   $this->options['prefix'].$name;
+            if(isset($ret[$name])) {
+                $content   =  $ret[$name];
+                if(C('DATA_CACHE_COMPRESS') && function_exists('gzcompress')) {
+                    //启用数据压缩
+                    $content   =   gzuncompress($content);
+                }
+                return $content;
+            }else {
+                return null;
+            }
         }else {
-            $filename = __FILE__ . (string) $project;
-            for($key = array(); sizeof($key) < strlen($filename); $key[] = ord(substr($filename, sizeof($key), 1)));
-            return dechex(array_sum($key));
+            return false;
         }
     }
 
@@ -154,23 +155,6 @@ class Shmop extends Cache {
     }
 
     /**
-     * 共享锁定
-     * @access private
-     * @param string $name 缓存变量名
-     * @return boolean
-     */
-    private function _lock() {
-        if (function_exists('sem_get')) {
-            $fp = sem_get($this->handler, 1, 0600, 1);
-            sem_acquire ($fp);
-        } else {
-            $fp = fopen($this->options['temp'].$this->options['prefix'].md5($this->handler), 'w');
-            flock($fp, LOCK_EX);
-        }
-        return $fp;
-    }
-
-    /**
      * 解除共享锁定
      * @access private
      * @param string $name 缓存变量名
@@ -182,5 +166,21 @@ class Shmop extends Cache {
         } else {
             fclose($fp);
         }
+    }
+
+    /**
+     * 删除缓存
+     * @access public
+     * @param string $name 缓存变量名
+     * @return boolean
+     */
+    public function rm($name) {
+        $lh = $this->_lock();
+        $val = $this->get();
+        if (!is_array($val)) $val = array();
+        $name   =   $this->options['prefix'].$name;
+        unset($val[$name]);
+        $val = serialize($val);
+        return $this->_write($val, $lh);
     }
 }

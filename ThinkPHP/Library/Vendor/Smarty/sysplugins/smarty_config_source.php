@@ -48,27 +48,6 @@ class Smarty_Config_Source extends Smarty_Template_Source {
     }
 
     /**
-     * <<magic>> Generic setter.
-     *
-     * @param string $property_name valid: content, timestamp, exists
-     * @param mixed  $value         newly assigned value (not check for correct type)
-     * @throws SmartyException when the given property name is not valid
-     */
-    public function __set($property_name, $value)
-    {
-        switch ($property_name) {
-            case 'content':
-            case 'timestamp':
-            case 'exists':
-                $this->$property_name = $value;
-                break;
-
-            default:
-                throw new SmartyException("invalid config property '$property_name'.");
-        }
-    }
-
-    /**
      * <<magic>> Generic getter.
      *
      * @param string $property_name valid: content, timestamp, exists
@@ -87,6 +66,27 @@ class Smarty_Config_Source extends Smarty_Template_Source {
 
             default:
                 throw new SmartyException("config property '$property_name' does not exist.");
+        }
+    }
+
+    /**
+     * <<magic>> Generic setter.
+     *
+     * @param string $property_name valid: content, timestamp, exists
+     * @param mixed  $value         newly assigned value (not check for correct type)
+     * @throws SmartyException when the given property name is not valid
+     */
+    public function __set($property_name, $value)
+    {
+        switch ($property_name) {
+            case 'content':
+            case 'timestamp':
+            case 'exists':
+                $this->$property_name = $value;
+                break;
+
+            default:
+                throw new SmartyException("invalid config property '$property_name'.");
         }
     }
 

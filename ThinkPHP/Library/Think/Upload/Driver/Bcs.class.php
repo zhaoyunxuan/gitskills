@@ -11,19 +11,7 @@
 namespace Think\Upload\Driver;
 use Think\Upload\Driver\Bcs\BaiduBcs;
 class Bcs {
-    /**
-     * 上传文件根目录
-     * @var string
-     */
-    private $rootPath;
     const DEFAULT_URL = 'bcs.duapp.com';
-
-    /**
-     * 上传错误信息
-     * @var string
-     */
-    private $error = '';
-
     public $config = array(
     	'AccessKey'=> '',
         'SecretKey'=> '', //百度云服务器
@@ -31,8 +19,17 @@ class Bcs {
         'rename'   => false,
         'timeout'  => 3600, //超时时间
     );
-
     public $bcs = null;
+    /**
+     * 上传文件根目录
+     * @var string
+     */
+    private $rootPath;
+    /**
+     * 上传错误信息
+     * @var string
+     */
+    private $error = '';
 
     /**
      * 构造函数，用于设置上传根路径
@@ -111,6 +108,29 @@ class Bcs {
      */
     public function getError(){
         return $this->error;
+    }
+
+    /**
+     * 生成请求签名
+     * @return string          请求签名
+     */
+    private function sign($method, $Bucket, $object='/', $size=''){
+        if(!$size)
+            $size = $this->config['size'];
+        $param = array(
+            'ak'=>$this->config['AccessKey'],
+            'sk'=>$this->config['SecretKey'],
+            'size'=>$size,
+            'bucket'=>$Bucket,
+            'host'=>self :: DEFAULT_URL,
+            'date'=>time()+$this->config['timeout'],
+            'ip'=>'',
+            'object'=>$object
+        );
+        $response = $this->request($this->apiurl.'?'.http_build_query($param), 'POST');
+        if($response)
+            $response = json_decode($response, true);
+        return $response['content'][$method];
     }
 
     /**
@@ -199,30 +219,6 @@ class Bcs {
         $items = json_decode($text, true);
         return $items;
     }
-
-    /**
-     * 生成请求签名
-     * @return string          请求签名
-     */
-    private function sign($method, $Bucket, $object='/', $size=''){
-        if(!$size)
-            $size = $this->config['size'];
-        $param = array(
-            'ak'=>$this->config['AccessKey'],
-            'sk'=>$this->config['SecretKey'],
-            'size'=>$size,
-            'bucket'=>$Bucket,
-            'host'=>self :: DEFAULT_URL,
-            'date'=>time()+$this->config['timeout'],
-            'ip'=>'',
-            'object'=>$object
-        );
-        $response = $this->request($this->apiurl.'?'.http_build_query($param), 'POST');
-        if($response)
-            $response = json_decode($response, true);
-        return $response['content'][$method];
-    }
-
 
     /**
      * 获取请求错误信息

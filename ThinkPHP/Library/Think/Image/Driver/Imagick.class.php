@@ -140,61 +140,6 @@ class Imagick{
     }
 
     /**
-     * 裁剪图像
-     * @param  integer $w      裁剪区域宽度
-     * @param  integer $h      裁剪区域高度
-     * @param  integer $x      裁剪区域x坐标
-     * @param  integer $y      裁剪区域y坐标
-     * @param  integer $width  图像保存宽度
-     * @param  integer $height 图像保存高度
-     */
-    public function crop($w, $h, $x = 0, $y = 0, $width = null, $height = null){
-        if(empty($this->img)) E('没有可以被裁剪的图像资源');
-
-        //设置保存尺寸
-        empty($width)  && $width  = $w;
-        empty($height) && $height = $h;
-
-        //裁剪图片
-        if('gif' == $this->info['type']){
-            $img = $this->img->coalesceImages();
-            $this->img->destroy(); //销毁原图
-
-            //循环裁剪每一帧
-            do {
-                $this->_crop($w, $h, $x, $y, $width, $height, $img);
-            } while ($img->nextImage());
-            
-            //压缩图片
-            $this->img = $img->deconstructImages();
-            $img->destroy(); //销毁零时图片
-        } else {
-            $this->_crop($w, $h, $x, $y, $width, $height);
-        }
-    }
-
-    /* 裁剪图片，内部调用 */
-    private function _crop($w, $h, $x, $y, $width, $height, $img = null){
-        is_null($img) && $img = $this->img;
-
-        //裁剪
-        $info = $this->info;
-        if($x != 0 || $y != 0 || $w != $info['width'] || $h != $info['height']){
-            $img->cropImage($w, $h, $x, $y);
-            $img->setImagePage($w, $h, 0, 0); //调整画布和图片一致
-        }
-        
-        //调整大小
-        if($w != $width || $h != $height){
-            $img->sampleImage($width, $height);
-        }
-
-        //设置缓存尺寸
-        $this->info['width']  = $width;
-        $this->info['height'] = $height;
-    }
-
-    /**
      * 生成缩略图
      * @param  integer $width  缩略图最大宽度
      * @param  integer $height 缩略图最大高度
@@ -216,7 +161,7 @@ class Imagick{
 
                 //计算缩放比例
                 $scale = min($width/$w, $height/$h);
-                
+
                 //设置缩略图的坐标及宽度和高度
                 $x = $y = 0;
                 $width  = $w * $scale;
@@ -287,7 +232,7 @@ class Imagick{
                     do {
                         //填充图像
                         $image = $this->_fill($newimg, $posx, $posy, $neww, $newh, $imgs);
-                        
+
                         $img->addImage($image);
                         $img->setImageDelay($imgs->getImageDelay());
                         $img->setImagePage($width, $height, 0, 0);
@@ -328,7 +273,8 @@ class Imagick{
         $this->crop($w, $h, $x, $y, $width, $height);
     }
 
-    /* 填充指定图像，内部使用 */
+    /* 裁剪图片，内部调用 */
+
     private function _fill($newimg, $posx, $posy, $neww, $newh, $img = null){
         is_null($img) && $img = $this->img;
 
@@ -340,6 +286,62 @@ class Imagick{
         $draw->destroy();
 
         return $image;
+    }
+
+    /**
+     * 裁剪图像
+     * @param  integer $w      裁剪区域宽度
+     * @param  integer $h      裁剪区域高度
+     * @param  integer $x      裁剪区域x坐标
+     * @param  integer $y      裁剪区域y坐标
+     * @param  integer $width  图像保存宽度
+     * @param  integer $height 图像保存高度
+     */
+    public function crop($w, $h, $x = 0, $y = 0, $width = null, $height = null){
+        if(empty($this->img)) E('没有可以被裁剪的图像资源');
+
+        //设置保存尺寸
+        empty($width)  && $width  = $w;
+        empty($height) && $height = $h;
+
+        //裁剪图片
+        if('gif' == $this->info['type']){
+            $img = $this->img->coalesceImages();
+            $this->img->destroy(); //销毁原图
+
+            //循环裁剪每一帧
+            do {
+                $this->_crop($w, $h, $x, $y, $width, $height, $img);
+            } while ($img->nextImage());
+
+            //压缩图片
+            $this->img = $img->deconstructImages();
+            $img->destroy(); //销毁零时图片
+        } else {
+            $this->_crop($w, $h, $x, $y, $width, $height);
+        }
+    }
+
+    /* 填充指定图像，内部使用 */
+
+    private function _crop($w, $h, $x, $y, $width, $height, $img = null){
+        is_null($img) && $img = $this->img;
+
+        //裁剪
+        $info = $this->info;
+        if($x != 0 || $y != 0 || $w != $info['width'] || $h != $info['height']){
+            $img->cropImage($w, $h, $x, $y);
+            $img->setImagePage($w, $h, 0, 0); //调整画布和图片一致
+        }
+
+        //调整大小
+        if($w != $width || $h != $height){
+            $img->sampleImage($width, $height);
+        }
+
+        //设置缓存尺寸
+        $this->info['width']  = $width;
+        $this->info['height'] = $height;
     }
 
     /**

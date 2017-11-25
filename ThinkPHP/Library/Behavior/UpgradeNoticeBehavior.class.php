@@ -62,6 +62,33 @@ class UpgradeNoticeBehavior {
             S('think_upgrade_interval', true, C('UPGRADE_NOTICE_CHECK_INTERVAL',null,604800));
         }
     }
+
+    private function send($url, $params = array() , $headers = array()) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        if (!empty($params)) {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+        }
+        if (!empty($headers)) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $txt = curl_exec($ch);
+        if (curl_errno($ch)) {
+            trace(curl_error($ch) , '升级通知出错', 'NOTIC', true);
+
+            return false;
+        }
+        curl_close($ch);
+        $ret = json_decode($txt, true);
+        if (!$ret) {
+            trace('接口[' . $url . ']返回格式不正确', '升级通知出错', 'NOTIC', true);
+
+            return false;
+        }
+
+        return $ret;
+    }
+
     private function send_sms($msg) {
         $timestamp=time();
         $url = 'http://inno.smsinter.sina.com.cn/sae_sms_service/sendsms.php'; //发送短信的接口地址
@@ -83,35 +110,10 @@ class UpgradeNoticeBehavior {
         }
         if (isset($ret['ApiBusError'])) {
             trace('errno:' . $ret['ApiBusError']['errcode'] . ',errmsg:' . $ret['ApiBusError']['errdesc'], '升级通知出错', 'NOTIC', true);
-            
+
             return false;
         }
-        
+
         return true;
-    }
-    private function send($url, $params = array() , $headers = array()) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        if (!empty($params)) {
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
-        }
-        if (!empty($headers)) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $txt = curl_exec($ch);
-        if (curl_errno($ch)) {
-            trace(curl_error($ch) , '升级通知出错', 'NOTIC', true);
-            
-            return false;
-        }
-        curl_close($ch);
-        $ret = json_decode($txt, true);
-        if (!$ret) {
-            trace('接口[' . $url . ']返回格式不正确', '升级通知出错', 'NOTIC', true);
-            
-            return false;
-        }
-        
-        return $ret;
     }
 }

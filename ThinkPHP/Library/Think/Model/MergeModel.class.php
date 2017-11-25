@@ -59,30 +59,6 @@ class MergeModel extends Model {
     }
 
     /**
-     * 得到完整的数据表名
-     * @access public
-     * @return string
-     */
-    public function getTableName() {
-        if(empty($this->trueTableName)) {
-            $tableName  =   array();
-            $models     =   $this->modelList;
-            foreach($models as $model){
-                $tableName[]    =   M($model)->getTableName().' '.$model;
-            }
-            $this->trueTableName    =   implode(',',$tableName);
-        }
-        return $this->trueTableName;
-    }
-
-    /**
-     * 自动检测数据表信息
-     * @access protected
-     * @return void
-     */
-    protected function _checkTableInfo() {}
-
-    /**
      * 新增聚合数据
      * @access public
      * @param mixed $data 数据
@@ -128,45 +104,6 @@ class MergeModel extends Model {
         return $result;
     }
 
-   /**
-     * 对保存到数据库的数据进行处理
-     * @access protected
-     * @param mixed $data 要操作的数据
-     * @return boolean
-     */
-     protected function _facade($data) {
-
-        // 检查数据字段合法性
-        if(!empty($this->fields)) {
-            if(!empty($this->options['field'])) {
-                $fields =   $this->options['field'];
-                unset($this->options['field']);
-                if(is_string($fields)) {
-                    $fields =   explode(',',$fields);
-                }    
-            }else{
-                $fields =   $this->fields;
-            }        
-            foreach ($data as $key=>$val){
-                if(!in_array($key,$fields,true)){
-                    unset($data[$key]);
-                }elseif(array_key_exists($key,$this->mapFields)){
-                    // 需要处理映射字段
-                    $data[$this->mapFields[$key]] = $val;
-                    unset($data[$key]);
-                }
-            }
-        }
-       
-        // 安全过滤
-        if(!empty($this->options['filter'])) {
-            $data = array_map($this->options['filter'],$data);
-            unset($this->options['filter']);
-        }
-        $this->_before_write($data);
-        return $data;
-     }
-
     /**
      * 保存聚合模型数据
      * @access public
@@ -191,7 +128,7 @@ class MergeModel extends Model {
             // 没有数据则不执行
             $this->error    =   L('_DATA_TYPE_INVALID_');
             return false;
-        }            
+        }
         // 如果存在主键数据 则自动作为更新条件
         $pk         =   $this->pk;
         if(isset($data[$pk])) {
@@ -201,7 +138,7 @@ class MergeModel extends Model {
         }
         $options['join']    =   '';
         $options    =   $this->_parseOptions($options);
-        // 更新操作不使用JOIN 
+        // 更新操作不使用JOIN
         $options['table']   =   $this->getTableName();
 
         if(is_array($options['where']) && isset($options['where'][$pk])){
@@ -209,13 +146,30 @@ class MergeModel extends Model {
         }
         if(false === $this->_before_update($data,$options)) {
             return false;
-        }        
+        }
         $result     =   $this->db->update($data,$options);
         if(false !== $result) {
             if(isset($pkValue)) $data[$pk]   =  $pkValue;
             $this->_after_update($data,$options);
         }
         return $result;
+    }
+
+    /**
+     * 得到完整的数据表名
+     * @access public
+     * @return string
+     */
+    public function getTableName() {
+        if(empty($this->trueTableName)) {
+            $tableName  =   array();
+            $models     =   $this->modelList;
+            foreach($models as $model){
+                $tableName[]    =   M($model)->getTableName().' '.$model;
+            }
+            $this->trueTableName    =   implode(',',$tableName);
+        }
+        return $this->trueTableName;
     }
 
     /**
@@ -233,7 +187,7 @@ class MergeModel extends Model {
             else
                 return false;
         }
-        
+
         if(is_numeric($options)  || is_string($options)) {
             // 根据主键删除记录
             if(strpos($options,',')) {
@@ -250,16 +204,16 @@ class MergeModel extends Model {
         if(empty($options['where'])){
             // 如果条件为空 不进行删除操作 除非设置 1=1
             return false;
-        }        
+        }
         if(is_array($options['where']) && isset($options['where'][$pk])){
             $pkValue            =  $options['where'][$pk];
         }
-        
+
         $options['table']   =   implode(',',$this->modelList);
         $options['using']   =   $this->getTableName();
         if(false === $this->_before_delete($options)) {
             return false;
-        }        
+        }
         $result  =    $this->db->delete($options);
         if(false !== $result) {
             $data = array();
@@ -269,6 +223,61 @@ class MergeModel extends Model {
         // 返回删除记录个数
         return $result;
     }
+
+    /**
+     * 获取数据表字段信息
+     * @access public
+     * @return array
+     */
+    public function getDbFields(){
+        return $this->fields;
+    }
+
+    /**
+     * 自动检测数据表信息
+     * @access protected
+     * @return void
+     */
+    protected function _checkTableInfo() {}
+
+   /**
+     * 对保存到数据库的数据进行处理
+     * @access protected
+     * @param mixed $data 要操作的数据
+     * @return boolean
+     */
+     protected function _facade($data) {
+
+        // 检查数据字段合法性
+        if(!empty($this->fields)) {
+            if(!empty($this->options['field'])) {
+                $fields =   $this->options['field'];
+                unset($this->options['field']);
+                if(is_string($fields)) {
+                    $fields =   explode(',',$fields);
+                }
+            }else{
+                $fields =   $this->fields;
+            }
+            foreach ($data as $key=>$val){
+                if(!in_array($key,$fields,true)){
+                    unset($data[$key]);
+                }elseif(array_key_exists($key,$this->mapFields)){
+                    // 需要处理映射字段
+                    $data[$this->mapFields[$key]] = $val;
+                    unset($data[$key]);
+                }
+            }
+        }
+
+        // 安全过滤
+        if(!empty($this->options['filter'])) {
+            $data = array_map($this->options['filter'],$data);
+            unset($this->options['filter']);
+        }
+        $this->_before_write($data);
+        return $data;
+     }
 
     /**
      * 表达式过滤方法
@@ -292,6 +301,57 @@ class MergeModel extends Model {
             $options['where']  =  $this->checkCondition($options['where']);
         if(isset($options['order']))
             $options['order']  =  $this->checkOrder($options['order']);
+    }
+
+    /**
+     * 检查fields表达式中的聚合字段
+     * @access protected
+     * @param string $fields 字段
+     * @return string
+     */
+    protected function checkFields($fields='') {
+        if(empty($fields) || '*'==$fields ) {
+            // 获取全部聚合字段
+            $fields =   $this->fields;
+        }
+        if(!is_array($fields))
+            $fields =   explode(',',$fields);
+
+        // 解析成聚合字段
+        $array =  array();
+        foreach ($fields as $field){
+            if(array_key_exists($field,$this->mapFields)){
+                // 需要处理映射字段
+                $array[]  =   $this->mapFields[$field].' AS '.$field;
+            }else{
+                $array[]  =     $field;
+            }
+        }
+        $fields = implode(',',$array);
+        return $fields;
+    }
+
+    /**
+     * 检查Group表达式中的聚合字段
+     * @access protected
+     * @param string $group 字段
+     * @return string
+     */
+    protected function checkGroup($group='') {
+         if(!empty($group)) {
+            $groups = explode(',',$group);
+            $_group = array();
+            foreach ($groups as $field){
+                // 解析成聚合字段
+                if(array_key_exists($field,$this->mapFields)){
+                    // 需要处理映射字段
+                    $field  =   $this->mapFields[$field];
+                }                 
+                $_group[] = $field;
+            }
+            $group  =   implode(',',$_group);
+         }
+        return $group;
     }
 
     /**
@@ -332,72 +392,12 @@ class MergeModel extends Model {
                 if(array_key_exists($field,$this->mapFields)){
                     // 需要处理映射字段
                     $field  =   $this->mapFields[$field];
-                }                
+                }
                 $_order[] = $field.' '.$sort;
             }
             $order = implode(',',$_order);
          }
         return $order;
-    }
-
-    /**
-     * 检查Group表达式中的聚合字段
-     * @access protected
-     * @param string $group 字段
-     * @return string
-     */
-    protected function checkGroup($group='') {
-         if(!empty($group)) {
-            $groups = explode(',',$group);
-            $_group = array();
-            foreach ($groups as $field){
-                // 解析成聚合字段
-                if(array_key_exists($field,$this->mapFields)){
-                    // 需要处理映射字段
-                    $field  =   $this->mapFields[$field];
-                }                 
-                $_group[] = $field;
-            }
-            $group  =   implode(',',$_group);
-         }
-        return $group;
-    }
-
-    /**
-     * 检查fields表达式中的聚合字段
-     * @access protected
-     * @param string $fields 字段
-     * @return string
-     */
-    protected function checkFields($fields='') {
-        if(empty($fields) || '*'==$fields ) {
-            // 获取全部聚合字段
-            $fields =   $this->fields;
-        }
-        if(!is_array($fields))
-            $fields =   explode(',',$fields);
-
-        // 解析成聚合字段
-        $array =  array();
-        foreach ($fields as $field){
-            if(array_key_exists($field,$this->mapFields)){
-                // 需要处理映射字段
-                $array[]  =   $this->mapFields[$field].' AS '.$field;
-            }else{
-                $array[]  =     $field;
-            }
-        }
-        $fields = implode(',',$array);
-        return $fields;
-    }
-
-    /**
-     * 获取数据表字段信息
-     * @access public
-     * @return array
-     */
-    public function getDbFields(){
-        return $this->fields;
     }
 
 }

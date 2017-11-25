@@ -164,6 +164,41 @@ class Smarty_Internal_Data {
     }
 
     /**
+     * gets the object of a Smarty variable
+     *
+     * @param string  $variable the name of the Smarty variable
+     * @param object  $_ptr     optional pointer to data object
+     * @param boolean $search_parents search also in parent data
+     * @return object the object of the variable
+     */
+    public function getVariable($variable, $_ptr = null, $search_parents = true, $error_enable = true)
+    {
+        if ($_ptr === null) {
+            $_ptr = $this;
+        } while ($_ptr !== null) {
+            if (isset($_ptr->tpl_vars[$variable])) {
+                // found it, return it
+                return $_ptr->tpl_vars[$variable];
+            }
+            // not found, try at parent
+            if ($search_parents) {
+                $_ptr = $_ptr->parent;
+            } else {
+                $_ptr = null;
+            }
+        }
+        if (isset(Smarty::$global_tpl_vars[$variable])) {
+            // found it, return it
+            return Smarty::$global_tpl_vars[$variable];
+        }
+        if ($this->smarty->error_unassigned && $error_enable) {
+            // force a notice
+            $x = $$variable;
+        }
+        return new Undefined_Smarty_Variable;
+    }
+
+    /**
      * appends values to template variables by reference
      *
      * @param string $tpl_var the template variable name
@@ -279,41 +314,6 @@ class Smarty_Internal_Data {
         $config = new Smarty_Internal_Config($config_file, $this->smarty, $this);
         $config->loadConfigVars($sections);
         return $this;
-    }
-
-    /**
-     * gets the object of a Smarty variable
-     *
-     * @param string  $variable the name of the Smarty variable
-     * @param object  $_ptr     optional pointer to data object
-     * @param boolean $search_parents search also in parent data
-     * @return object the object of the variable
-     */
-    public function getVariable($variable, $_ptr = null, $search_parents = true, $error_enable = true)
-    {
-        if ($_ptr === null) {
-            $_ptr = $this;
-        } while ($_ptr !== null) {
-            if (isset($_ptr->tpl_vars[$variable])) {
-                // found it, return it
-                return $_ptr->tpl_vars[$variable];
-            }
-            // not found, try at parent
-            if ($search_parents) {
-                $_ptr = $_ptr->parent;
-            } else {
-                $_ptr = null;
-            }
-        }
-        if (isset(Smarty::$global_tpl_vars[$variable])) {
-            // found it, return it
-            return Smarty::$global_tpl_vars[$variable];
-        }
-        if ($this->smarty->error_unassigned && $error_enable) {
-            // force a notice
-            $x = $$variable;
-        }
-        return new Undefined_Smarty_Variable;
     }
 
     /**

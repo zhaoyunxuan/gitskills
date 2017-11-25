@@ -32,18 +32,7 @@
 class DHParams {
     var $len;
     var $dhParams;
-    function getNearest($n, $a) {
-        $j = 0;
-        $m = abs($a[0] - $n);
-        for ($i = 1; $i < count($a); $i++) {
-            $t = abs($a[$i] - $n);
-            if ($m > $t) {
-                $m = $t;
-                $j = $i;
-            }
-        }
-        return $a[$j];
-    }
+
     function DHParams($len = 128) {
         if (extension_loaded('gmp')) {
             $a = array(96, 128, 160, 192, 256, 512, 768, 1024, 1536, 2048, 3072, 4096);
@@ -61,6 +50,20 @@ class DHParams {
         $dhParams = unserialize(file_get_contents("dhparams/{$this->len}.dhp", true));
         $this->dhParams = $dhParams[mt_rand(0, count($dhParams) - 1)];
     }
+
+    function getNearest($n, $a) {
+        $j = 0;
+        $m = abs($a[0] - $n);
+        for ($i = 1; $i < count($a); $i++) {
+            $t = abs($a[$i] - $n);
+            if ($m > $t) {
+                $m = $t;
+                $j = $i;
+            }
+        }
+        return $a[$j];
+    }
+
     function getL() {
         return $this->len;
     }

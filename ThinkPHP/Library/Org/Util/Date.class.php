@@ -179,16 +179,6 @@ class Date {
     }
 
     /**
-     * 验证日期数据是否有效
-     * @access public
-     * @param mixed $date 日期数据
-     * @return string
-     */
-    public function valid($date) {
-
-    }
-
-    /**
      * 日期参数设置
      * @static
      * @access public
@@ -229,6 +219,16 @@ class Date {
     }
 
     /**
+     * 验证日期数据是否有效
+     * @access public
+     * @param mixed $date 日期数据
+     * @return string
+     */
+    public function valid($date) {
+
+    }
+
+    /**
      * 是否为闰年
      * @static
      * @access public
@@ -239,6 +239,37 @@ class Date {
             $year = $this->year;
         }
         return ((($year % 4) == 0) && (($year % 100) != 0) || (($year % 400) == 0));
+    }
+
+    /**
+     * 人性化的计算日期差
+     * @static
+     * @access public
+     * @param mixed $time 要比较的时间
+     * @param mixed $precision 返回的精度
+     * @return string
+     */
+    public function timeDiff( $time ,$precision=false) {
+        if(!is_numeric($precision) && !is_bool($precision)) {
+            static $_diff = array('y'=>'年','M'=>'个月','d'=>'天','w'=>'周','s'=>'秒','h'=>'小时','m'=>'分钟');
+            return ceil($this->dateDiff($time,$precision)).$_diff[$precision].'前';
+        }
+        $diff = abs($this->parse($time) - $this->date);
+        static $chunks = array(array(31536000,'年'),array(2592000,'个月'),array(604800,'周'),array(86400,'天'),array(3600 ,'小时'),array(60,'分钟'),array(1,'秒'));
+        $count =0;
+        $since = '';
+        for($i=0;$i<count($chunks);$i++) {
+            if($diff>=$chunks[$i][0]) {
+                $num   =  floor($diff/$chunks[$i][0]);
+                $since .= sprintf('%d'.$chunks[$i][1],$num);
+                $diff =  (int)($diff-$chunks[$i][0]*$num);
+                $count++;
+                if(!$precision || $count>=$precision) {
+                    break;
+                }
+            }
+       }
+        return $since.'前';
     }
 
     /**
@@ -288,34 +319,12 @@ class Date {
     }
 
     /**
-     * 人性化的计算日期差
-     * @static
+     * 计算周的第一天 返回Date对象
      * @access public
-     * @param mixed $time 要比较的时间
-     * @param mixed $precision 返回的精度
-     * @return string
+     * @return Date
      */
-    public function timeDiff( $time ,$precision=false) {
-        if(!is_numeric($precision) && !is_bool($precision)) {
-            static $_diff = array('y'=>'年','M'=>'个月','d'=>'天','w'=>'周','s'=>'秒','h'=>'小时','m'=>'分钟');
-            return ceil($this->dateDiff($time,$precision)).$_diff[$precision].'前';
-        }
-        $diff = abs($this->parse($time) - $this->date);
-        static $chunks = array(array(31536000,'年'),array(2592000,'个月'),array(604800,'周'),array(86400,'天'),array(3600 ,'小时'),array(60,'分钟'),array(1,'秒'));
-        $count =0;
-        $since = '';
-        for($i=0;$i<count($chunks);$i++) {
-            if($diff>=$chunks[$i][0]) {
-                $num   =  floor($diff/$chunks[$i][0]);
-                $since .= sprintf('%d'.$chunks[$i][1],$num);
-                $diff =  (int)($diff-$chunks[$i][0]*$num);
-                $count++;
-                if(!$precision || $count>=$precision) {
-                    break;
-                }
-            }
-       }
-        return $since.'前';
+    public function firstDayOfWeek() {
+        return $this->getDayOfWeek(1);
     }
 
     /**
@@ -326,15 +335,6 @@ class Date {
     public function getDayOfWeek($n){
         $week = array(0=>'sunday',1=>'monday',2=>'tuesday',3=>'wednesday',4=>'thursday',5=>'friday',6=>'saturday');
         return (new Date($week[$n]));
-    }
-
-    /**
-     * 计算周的第一天 返回Date对象
-     * @access public
-     * @return Date
-     */
-    public function firstDayOfWeek() {
-        return $this->getDayOfWeek(1);
     }
 
     /**

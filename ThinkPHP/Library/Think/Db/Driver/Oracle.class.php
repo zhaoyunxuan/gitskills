@@ -17,28 +17,14 @@ use Think\Db\Driver;
  */
 class Oracle extends Driver{
 
-    private     $table        = '';
     protected   $selectSql    = 'SELECT * FROM (SELECT thinkphp.*, rownum AS numrow FROM (SELECT  %DISTINCT% %FIELD% FROM %TABLE%%JOIN%%WHERE%%GROUP%%HAVING%%ORDER%) thinkphp ) %LIMIT%%COMMENT%';
-
-    /**
-     * 解析pdo连接的dsn信息
-     * @access public
-     * @param array $config 连接信息
-     * @return string
-     */
-    protected function parseDsn($config){
-        $dsn  =   'oci:dbname=//'.$config['hostname'].($config['hostport']?':'.$config['hostport']:'').'/'.$config['database'];
-        if(!empty($config['charset'])) {
-            $dsn  .= ';charset='.$config['charset'];
-        }
-        return $dsn;
-    }
+    private     $table        = '';
 
     /**
      * 执行语句
      * @access public
      * @param string $str  sql指令
-     * @param boolean $fetchSql  不执行只是获取SQL     
+     * @param boolean $fetchSql  不执行只是获取SQL
      * @return integer
      */
     public function execute($str,$fetchSql=false) {
@@ -60,7 +46,7 @@ class Oracle extends Driver{
         //释放前次的查询结果
         if ( !empty($this->PDOStatement) ) $this->free();
         $this->executeTimes++;
-        N('db_write',1); // 兼容代码        
+        N('db_write',1); // 兼容代码
         // 记录开始执行时间
         $this->debug(true);
         $this->PDOStatement	=	$this->_linkID->prepare($str);
@@ -75,7 +61,7 @@ class Oracle extends Driver{
                 $this->PDOStatement->bindValue($key, $val);
             }
         }
-        $this->bind =   array();        
+        $this->bind =   array();
         $result	=	$this->PDOStatement->execute();
         $this->debug(false);
         if ( false === $result) {
@@ -88,6 +74,16 @@ class Oracle extends Driver{
             }
             return $this->numRows;
         }
+    }
+
+    /**
+     * SQL指令安全过滤
+     * @access public
+     * @param string $str  SQL指令
+     * @return string
+     */
+    public function escapeString($str) {
+        return str_ireplace("'", "''", $str);
     }
 
     /**
@@ -130,16 +126,6 @@ class Oracle extends Driver{
     }
 
     /**
-     * SQL指令安全过滤
-     * @access public
-     * @param string $str  SQL指令
-     * @return string
-     */
-    public function escapeString($str) {
-        return str_ireplace("'", "''", $str);
-    }
-
-    /**
      * limit
      * @access public
      * @return string
@@ -154,6 +140,20 @@ class Oracle extends Driver{
                 $limitStr = "(numrow>0 AND numrow<=".$limit[0].")";
         }
         return $limitStr?' WHERE '.$limitStr:'';
+    }
+
+    /**
+     * 解析pdo连接的dsn信息
+     * @access public
+     * @param array $config 连接信息
+     * @return string
+     */
+    protected function parseDsn($config){
+        $dsn  =   'oci:dbname=//'.$config['hostname'].($config['hostport']?':'.$config['hostport']:'').'/'.$config['database'];
+        if(!empty($config['charset'])) {
+            $dsn  .= ';charset='.$config['charset'];
+        }
+        return $dsn;
     }
 
     /**

@@ -18,13 +18,6 @@ class ViewModel extends Model {
     protected $viewFields = array();
 
     /**
-     * 自动检测数据表信息
-     * @access protected
-     * @return void
-     */
-    protected function _checkTableInfo() {}
-
-    /**
      * 得到完整的数据表名
      * @access public
      * @return string
@@ -59,6 +52,13 @@ class ViewModel extends Model {
     }
 
     /**
+     * 自动检测数据表信息
+     * @access protected
+     * @return void
+     */
+    protected function _checkTableInfo() {}
+
+    /**
      * 表达式过滤方法
      * @access protected
      * @param string $options 表达式
@@ -75,107 +75,6 @@ class ViewModel extends Model {
             $options['where']  =  $this->checkCondition($options['where']);
         if(isset($options['order']))
             $options['order']  =  $this->checkOrder($options['order']);
-    }
-
-    /**
-     * 检查是否定义了所有字段
-     * @access protected
-     * @param string $name 模型名称
-     * @param array $fields 字段数组
-     * @return array
-     */
-    private function _checkFields($name,$fields) {
-        if(false !== $pos = array_search('*',$fields)) {// 定义所有字段
-            $fields  =  array_merge($fields,M($name)->getDbFields());
-            unset($fields[$pos]);
-        }
-        return $fields;
-    }
-
-    /**
-     * 检查条件中的视图字段
-     * @access protected
-     * @param mixed $data 条件表达式
-     * @return array
-     */
-    protected function checkCondition($where) {
-        if(is_array($where)) {
-            $view   =   array();
-            // 检查视图字段
-            foreach ($this->viewFields as $key=>$val){
-                $k = isset($val['_as'])?$val['_as']:$key;
-                $val  =  $this->_checkFields($key,$val);
-                foreach ($where as $name=>$value){
-                    if(false !== $field = array_search($name,$val,true)) {
-                        // 存在视图字段
-                        $_key   =   is_numeric($field)?    $k.'.'.$name   :   $k.'.'.$field;
-                        $view[$_key]    =   $value;
-                        unset($where[$name]);
-                    }
-                }
-            }
-            $where    =   array_merge($where,$view);
-         }
-        return $where;
-    }
-
-    /**
-     * 检查Order表达式中的视图字段
-     * @access protected
-     * @param string $order 字段
-     * @return string
-     */
-    protected function checkOrder($order='') {
-         if(is_string($order) && !empty($order)) {
-            $orders = explode(',',$order);
-            $_order = array();
-            foreach ($orders as $order){
-                $array = explode(' ',trim($order));
-                $field   =   $array[0];
-                $sort   =   isset($array[1])?$array[1]:'ASC';
-                // 解析成视图字段
-                foreach ($this->viewFields as $name=>$val){
-                    $k = isset($val['_as'])?$val['_as']:$name;
-                    $val  =  $this->_checkFields($name,$val);
-                    if(false !== $_field = array_search($field,$val,true)) {
-                        // 存在视图字段
-                        $field     =  is_numeric($_field)?$k.'.'.$field:$k.'.'.$_field;
-                        break;
-                    }
-                }
-                $_order[] = $field.' '.$sort;
-            }
-            $order = implode(',',$_order);
-         }
-        return $order;
-    }
-
-    /**
-     * 检查Group表达式中的视图字段
-     * @access protected
-     * @param string $group 字段
-     * @return string
-     */
-    protected function checkGroup($group='') {
-         if(!empty($group)) {
-            $groups = explode(',',$group);
-            $_group = array();
-            foreach ($groups as $field){
-                // 解析成视图字段
-                foreach ($this->viewFields as $name=>$val){
-                    $k = isset($val['_as'])?$val['_as']:$name;
-                    $val  =  $this->_checkFields($name,$val);
-                    if(false !== $_field = array_search($field,$val,true)) {
-                        // 存在视图字段
-                        $field     =  is_numeric($_field)?$k.'.'.$field:$k.'.'.$_field;
-                        break;
-                    }
-                }
-                $_group[] = $field;
-            }
-            $group  =   implode(',',$_group);
-         }
-        return $group;
     }
 
     /**
@@ -239,5 +138,106 @@ class ViewModel extends Model {
             $fields = implode(',',$array);
         }
         return $fields;
+    }
+
+    /**
+     * 检查是否定义了所有字段
+     * @access protected
+     * @param string $name 模型名称
+     * @param array $fields 字段数组
+     * @return array
+     */
+    private function _checkFields($name,$fields) {
+        if(false !== $pos = array_search('*',$fields)) {// 定义所有字段
+            $fields  =  array_merge($fields,M($name)->getDbFields());
+            unset($fields[$pos]);
+        }
+        return $fields;
+    }
+
+    /**
+     * 检查Group表达式中的视图字段
+     * @access protected
+     * @param string $group 字段
+     * @return string
+     */
+    protected function checkGroup($group='') {
+         if(!empty($group)) {
+            $groups = explode(',',$group);
+            $_group = array();
+            foreach ($groups as $field){
+                // 解析成视图字段
+                foreach ($this->viewFields as $name=>$val){
+                    $k = isset($val['_as'])?$val['_as']:$name;
+                    $val  =  $this->_checkFields($name,$val);
+                    if(false !== $_field = array_search($field,$val,true)) {
+                        // 存在视图字段
+                        $field     =  is_numeric($_field)?$k.'.'.$field:$k.'.'.$_field;
+                        break;
+                    }
+                }
+                $_group[] = $field;
+            }
+            $group  =   implode(',',$_group);
+         }
+        return $group;
+    }
+
+    /**
+     * 检查条件中的视图字段
+     * @access protected
+     * @param mixed $data 条件表达式
+     * @return array
+     */
+    protected function checkCondition($where) {
+        if(is_array($where)) {
+            $view   =   array();
+            // 检查视图字段
+            foreach ($this->viewFields as $key=>$val){
+                $k = isset($val['_as'])?$val['_as']:$key;
+                $val  =  $this->_checkFields($key,$val);
+                foreach ($where as $name=>$value){
+                    if(false !== $field = array_search($name,$val,true)) {
+                        // 存在视图字段
+                        $_key   =   is_numeric($field)?    $k.'.'.$name   :   $k.'.'.$field;
+                        $view[$_key]    =   $value;
+                        unset($where[$name]);
+                    }
+                }
+            }
+            $where    =   array_merge($where,$view);
+         }
+        return $where;
+    }
+
+    /**
+     * 检查Order表达式中的视图字段
+     * @access protected
+     * @param string $order 字段
+     * @return string
+     */
+    protected function checkOrder($order='') {
+         if(is_string($order) && !empty($order)) {
+            $orders = explode(',',$order);
+            $_order = array();
+            foreach ($orders as $order){
+                $array = explode(' ',trim($order));
+                $field   =   $array[0];
+                $sort   =   isset($array[1])?$array[1]:'ASC';
+                // 解析成视图字段
+                foreach ($this->viewFields as $name=>$val){
+                    $k = isset($val['_as'])?$val['_as']:$name;
+                    $val  =  $this->_checkFields($name,$val);
+                    if(false !== $_field = array_search($field,$val,true)) {
+                        // 存在视图字段
+                        $field     =  is_numeric($_field)?$k.'.'.$field:$k.'.'.$_field;
+                        break;
+                    }
+                }
+                $_order[] = $field.' '.$sort;
+            }
+            $order = implode(',',$_order);
+         }
+        return $order;
     }
 }

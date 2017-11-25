@@ -6,10 +6,6 @@ class IndentTest extends PHPUnit_Framework_TestCase {
 
     protected $Y;
 
-    protected function setUp() {
-      $this->Y = Spyc::YAMLLoad("indent_1.yaml");
-    }
-
     public function testIndent_1() {
       $this->assertEquals (array ('child_1' => 2, 'child_2' => 0, 'child_3' => 1), $this->Y['root']);
     }
@@ -60,6 +56,10 @@ class IndentTest extends PHPUnit_Framework_TestCase {
 
     public function testListAndComment() {
       $this->assertEquals (array ('one', 'two', 'three'), $this->Y['list_and_comment']);
+    }
+
+    protected function setUp() {
+      $this->Y = Spyc::YAMLLoad("indent_1.yaml");
     }
 
 }

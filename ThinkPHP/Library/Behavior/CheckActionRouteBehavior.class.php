@@ -50,6 +50,60 @@ class CheckActionRouteBehavior {
     }
 
     // 检测URL和规则路由是否匹配
+
+    private function parseRegex($matches,$route,$regx) {
+        // 获取路由地址规则
+        $url   =  is_array($route)?$route[0]:$route;
+        $url   =  preg_replace('/:(\d+)/e','$matches[\\1]',$url);
+        if(0=== strpos($url,'/') || 0===strpos($url,'http')) { // 路由重定向跳转
+            header("Location: $url", true,(is_array($route) && isset($route[1]))?$route[1]:301);
+            exit;
+        }else{
+            // 解析路由地址
+            $var    =   $this->parseUrl($url);
+            // 解析剩余的URL参数
+            $regx   =   substr_replace($regx,'',0,strlen($matches[0]));
+            if($regx) {
+                preg_replace('@(\w+)\/([^,\/]+)@e', '$var[strtolower(\'\\1\')]=strip_tags(\'\\2\');', $regx);
+            }
+            // 解析路由自动传入参数
+            if(is_array($route) && isset($route[1])) {
+                parse_str($route[1],$params);
+                $var   =   array_merge($var,$params);
+            }
+            $action =   $var[C('VAR_ACTION')];
+            unset($var[C('VAR_ACTION')]);
+            $_GET   =   array_merge($var,$_GET);
+        }
+        return $action;
+    }
+
+    // 解析规范的路由地址
+    // 地址格式 操作?参数1=值1&参数2=值2...
+
+    private function parseUrl($url) {
+        $var  =  array();
+        if(false !== strpos($url,'?')) { // 操作?参数1=值1&参数2=值2...
+            $info   =   parse_url($url);
+            $path   =   $info['path'];
+            parse_str($info['query'],$var);
+        }else{ // 操作
+            $path   =   $url;
+        }
+        $var[C('VAR_ACTION')] = $path;
+        return $var;
+    }
+
+    // 解析规则路由
+    // '路由规则'=>'操作?额外参数1=值1&额外参数2=值2...'
+    // '路由规则'=>array('操作','额外参数1=值1&额外参数2=值2...')
+    // '路由规则'=>'外部地址'
+    // '路由规则'=>array('外部地址','重定向代码')
+    // 路由规则中 :开头 表示动态变量
+    // 外部地址中可以用动态变量 采用 :1 :2 的方式
+    // 'news/:month/:day/:id'=>array('News/read?cate=1','status=1'),
+    // 'new/:id'=>array('/new.php?id=:1',301), 重定向
+
     private function checkUrlMatch($regx,$rule) {
         $m1     =   explode('/',$regx);
         $m2     =   explode('/',$rule);
@@ -77,30 +131,15 @@ class CheckActionRouteBehavior {
         return $match;
     }
 
-    // 解析规范的路由地址
-    // 地址格式 操作?参数1=值1&参数2=值2...
-    private function parseUrl($url) {
-        $var  =  array();
-        if(false !== strpos($url,'?')) { // 操作?参数1=值1&参数2=值2...
-            $info   =   parse_url($url);
-            $path   =   $info['path'];
-            parse_str($info['query'],$var);
-        }else{ // 操作
-            $path   =   $url;
-        }
-        $var[C('VAR_ACTION')] = $path;
-        return $var;
-    }
+    // 解析正则路由
+    // '路由正则'=>'[分组/模块/操作]?参数1=值1&参数2=值2...'
+    // '路由正则'=>array('[分组/模块/操作]?参数1=值1&参数2=值2...','额外参数1=值1&额外参数2=值2...')
+    // '路由正则'=>'外部地址'
+    // '路由正则'=>array('外部地址','重定向代码')
+    // 参数值和外部地址中可以用动态变量 采用 :1 :2 的方式
+    // '/new\/(\d+)\/(\d+)/'=>array('News/read?id=:1&page=:2&cate=1','status=1'),
+    // '/new\/(\d+)/'=>array('/new.php?id=:1&page=:2&status=1','301'), 重定向
 
-    // 解析规则路由
-    // '路由规则'=>'操作?额外参数1=值1&额外参数2=值2...'
-    // '路由规则'=>array('操作','额外参数1=值1&额外参数2=值2...')
-    // '路由规则'=>'外部地址'
-    // '路由规则'=>array('外部地址','重定向代码')
-    // 路由规则中 :开头 表示动态变量
-    // 外部地址中可以用动态变量 采用 :1 :2 的方式
-    // 'news/:month/:day/:id'=>array('News/read?cate=1','status=1'),
-    // 'new/:id'=>array('/new.php?id=:1',301), 重定向
     private function parseRule($rule,$route,$regx) {
         // 获取路由地址规则
         $url        =   is_array($route)?$route[0]:$route;
@@ -155,40 +194,5 @@ class CheckActionRouteBehavior {
             $_GET   =   array_merge($var,$_GET);
             return $action;
         }
-    }
-
-    // 解析正则路由
-    // '路由正则'=>'[分组/模块/操作]?参数1=值1&参数2=值2...'
-    // '路由正则'=>array('[分组/模块/操作]?参数1=值1&参数2=值2...','额外参数1=值1&额外参数2=值2...')
-    // '路由正则'=>'外部地址'
-    // '路由正则'=>array('外部地址','重定向代码')
-    // 参数值和外部地址中可以用动态变量 采用 :1 :2 的方式
-    // '/new\/(\d+)\/(\d+)/'=>array('News/read?id=:1&page=:2&cate=1','status=1'),
-    // '/new\/(\d+)/'=>array('/new.php?id=:1&page=:2&status=1','301'), 重定向
-    private function parseRegex($matches,$route,$regx) {
-        // 获取路由地址规则
-        $url   =  is_array($route)?$route[0]:$route;
-        $url   =  preg_replace('/:(\d+)/e','$matches[\\1]',$url);
-        if(0=== strpos($url,'/') || 0===strpos($url,'http')) { // 路由重定向跳转
-            header("Location: $url", true,(is_array($route) && isset($route[1]))?$route[1]:301);
-            exit;
-        }else{
-            // 解析路由地址
-            $var    =   $this->parseUrl($url);
-            // 解析剩余的URL参数
-            $regx   =   substr_replace($regx,'',0,strlen($matches[0]));
-            if($regx) {
-                preg_replace('@(\w+)\/([^,\/]+)@e', '$var[strtolower(\'\\1\')]=strip_tags(\'\\2\');', $regx);
-            }
-            // 解析路由自动传入参数
-            if(is_array($route) && isset($route[1])) {
-                parse_str($route[1],$params);
-                $var   =   array_merge($var,$params);
-            }
-            $action =   $var[C('VAR_ACTION')];
-            unset($var[C('VAR_ACTION')]);
-            $_GET   =   array_merge($var,$_GET);
-        }
-        return $action;
     }
 }

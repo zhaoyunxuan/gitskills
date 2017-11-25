@@ -196,6 +196,18 @@ Class GIFEncoder {
 	::	GIFAddFrames...
 	::
 	*/
+
+	private function GIFWord ( $int ) {
+
+		return ( chr ( $int & 0xFF ) . chr ( ( $int >> 8 ) & 0xFF ) );
+	}
+	/*
+	:::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::	GIFAddFooter...
+	::
+	*/
+
 	private function GIFAddFrames ( $i, $d ) {
 
 		$Locals_str = 13 + 3 * ( 2 << ( ord ( $this->BUF [ $i ] { 10 } ) & 0x07 ) );
@@ -268,18 +280,10 @@ Class GIFEncoder {
 	/*
 	:::::::::::::::::::::::::::::::::::::::::::::::::::
 	::
-	::	GIFAddFooter...
-	::
-	*/
-	private function GIFAddFooter ( ) {
-		$this->GIF .= ";";
-	}
-	/*
-	:::::::::::::::::::::::::::::::::::::::::::::::::::
-	::
 	::	GIFBlockCompare...
 	::
 	*/
+
 	private function GIFBlockCompare ( $GlobalBlock, $LocalBlock, $Len ) {
 
 		for ( $i = 0; $i < $Len; $i++ ) {
@@ -300,9 +304,9 @@ Class GIFEncoder {
 	::	GIFWord...
 	::
 	*/
-	private function GIFWord ( $int ) {
 
-		return ( chr ( $int & 0xFF ) . chr ( ( $int >> 8 ) & 0xFF ) );
+	private function GIFAddFooter ( ) {
+		$this->GIF .= ";";
 	}
 	/*
 	:::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -310,6 +314,7 @@ Class GIFEncoder {
 	::	GetAnimation...
 	::
 	*/
+
 	public function GetAnimation ( ) {
 		return ( $this->GIF );
 	}
@@ -420,6 +425,25 @@ Class GIFDecoder {
 	::	GIFReadExtension ( )
 	::
 	*/
+
+	private function GIFGetByte ( $len ) {
+		$this->GIF_buffer = Array ( );
+
+		for ( $i = 0; $i < $len; $i++ ) {
+			if ( $this->GIF_bfseek > strlen ( $this->GIF_stream ) ) {
+				return 0;
+			}
+			$this->GIF_buffer [ ] = ord ( $this->GIF_stream { $this->GIF_bfseek++ } );
+		}
+		return 1;
+	}
+	/*
+	:::::::::::::::::::::::::::::::::::::::::::::::::::
+	::
+	::	GIFReadExtension ( )
+	::
+	*/
+
 	private function GIFReadExtensions ( ) {
 		$this->GIFGetByte ( 1 );
 		for ( ; ; ) {
@@ -443,9 +467,29 @@ Class GIFDecoder {
 	/*
 	:::::::::::::::::::::::::::::::::::::::::::::::::::
 	::
-	::	GIFReadExtension ( )
+	::	GIFGetByte ( $len )
 	::
 	*/
+
+	/*
+	 *
+	 *  05.06.2007.
+	 *  Made a little modification
+	 *
+	 *
+	 -	function GIFGetByte ( $len ) {
+	 -		$this->GIF_buffer = Array ( );
+	 -
+	 -		for ( $i = 0; $i < $len; $i++ ) {
+	 +			if ( $this->GIF_bfseek > strlen ( $this->GIF_stream ) ) {
+	 +				return 0;
+	 +			}
+	 -			$this->GIF_buffer [ ] = ord ( $this->GIF_stream { $this->GIF_bfseek++ } );
+	 -		}
+	 +		return 1;
+	 -	}
+	 */
+
 	private function GIFReadDescriptor ( ) {
 		$GIF_screen	= Array ( );
 
@@ -499,45 +543,10 @@ Class GIFDecoder {
 	/*
 	:::::::::::::::::::::::::::::::::::::::::::::::::::
 	::
-	::	GIFGetByte ( $len )
-	::
-	*/
-
-	/*
-	 *
-	 *  05.06.2007.
-	 *  Made a little modification
-	 *
-	 *
-	 -	function GIFGetByte ( $len ) {
-	 -		$this->GIF_buffer = Array ( );
-	 -
-	 -		for ( $i = 0; $i < $len; $i++ ) {
-	 +			if ( $this->GIF_bfseek > strlen ( $this->GIF_stream ) ) {
-	 +				return 0;
-	 +			}
-	 -			$this->GIF_buffer [ ] = ord ( $this->GIF_stream { $this->GIF_bfseek++ } );
-	 -		}
-	 +		return 1;
-	 -	}
-	 */
-	private function GIFGetByte ( $len ) {
-		$this->GIF_buffer = Array ( );
-
-		for ( $i = 0; $i < $len; $i++ ) {
-			if ( $this->GIF_bfseek > strlen ( $this->GIF_stream ) ) {
-				return 0;
-			}
-			$this->GIF_buffer [ ] = ord ( $this->GIF_stream { $this->GIF_bfseek++ } );
-		}
-		return 1;
-	}
-	/*
-	:::::::::::::::::::::::::::::::::::::::::::::::::::
-	::
 	::	GIFPutByte ( $bytes )
 	::
 	*/
+
 	private function GIFPutByte ( $bytes ) {
 		for ( $i = 0; $i < count ( $bytes ); $i++ ) {
 			$this->GIF_string .= chr ( $bytes [ $i ] );

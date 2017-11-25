@@ -84,6 +84,18 @@ class ColoredInspector implements Inspector {
     }
   }
 
+  private function _defaultColorMap() {
+    return array(
+      'integer' => 'light_green',
+      'float'   => 'light_yellow',
+      'string'  => 'light_red',
+      'bool'    => 'light_purple',
+      'keyword' => 'light_cyan',
+      'comment' => 'dark_grey',
+      'default' => 'none'
+    );
+  }
+
   public function inspect($variable) {
     return preg_replace(
       '/^/m',
@@ -92,19 +104,21 @@ class ColoredInspector implements Inspector {
     );
   }
 
-  /**
-   * Returns an associative array of an object's properties.
-   *
-   * This method is public so that subclasses may override it.
-   *
-   * @param object $value
-   * @return array
-   * */
-  public function objectVars($value) {
-    return get_object_vars($value);
-  }
-
   // -- Private Methods
+
+  private function _colorize($type, $value) {
+    if (!empty($this->_colorMap[$type])) {
+      $colorName = $this->_colorMap[$type];
+    } else {
+      $colorName = $this->_colorMap['default'];
+    }
+
+    return sprintf(
+      "%s%s\033[0m",
+      static::$TERM_COLORS[$colorName],
+      $value
+    );
+  }
 
   public function _dump($value) {
     $tests = array(
@@ -149,15 +163,44 @@ class ColoredInspector implements Inspector {
     return $this->_dumpStructure('array', $value);
   }
 
-  private function _dumpObject($value) {
-    return $this->_dumpStructure(
-      sprintf('object(%s)', get_class($value)),
-      $this->objectVars($value)
-    );
-  }
-
   private function _dumpStructure($type, $value) {
     return $this->_astToString($this->_buildAst($type, $value));
+  }
+
+  public function _astToString($node, $indent = 0) {
+    $children = $node['children'];
+    $self     = $this;
+
+    return implode(
+      "\n",
+      array(
+        sprintf('%s(', $node['name']),
+        implode(
+          ",\n",
+          array_map(
+            function($k) use($self, $children, $indent) {
+              if (is_array($children[$k])) {
+                return sprintf(
+                  '%s%s => %s',
+                  str_repeat(' ', ($indent + 1) * 2),
+                  $k,
+                  $self->_astToString($children[$k], $indent + 1)
+                );
+              } else {
+                return sprintf(
+                  '%s%s => %s',
+                  str_repeat(' ', ($indent + 1) * 2),
+                  $k,
+                  $children[$k]
+                );
+              }
+            },
+            array_keys($children)
+          )
+        ),
+        sprintf('%s)', str_repeat(' ', $indent * 2))
+      )
+    );
   }
 
   public function _buildAst($type, $value, $seen = array()) {
@@ -200,68 +243,6 @@ class ColoredInspector implements Inspector {
     );
   }
 
-  public function _astToString($node, $indent = 0) {
-    $children = $node['children'];
-    $self     = $this;
-
-    return implode(
-      "\n",
-      array(
-        sprintf('%s(', $node['name']),
-        implode(
-          ",\n",
-          array_map(
-            function($k) use($self, $children, $indent) {
-              if (is_array($children[$k])) {
-                return sprintf(
-                  '%s%s => %s',
-                  str_repeat(' ', ($indent + 1) * 2),
-                  $k,
-                  $self->_astToString($children[$k], $indent + 1)
-                );
-              } else {
-                return sprintf(
-                  '%s%s => %s',
-                  str_repeat(' ', ($indent + 1) * 2),
-                  $k,
-                  $children[$k]
-                );
-              }
-            },
-            array_keys($children)
-          )
-        ),
-        sprintf('%s)', str_repeat(' ', $indent * 2))
-      )
-    );
-  }
-
-  private function _defaultColorMap() {
-    return array(
-      'integer' => 'light_green',
-      'float'   => 'light_yellow',
-      'string'  => 'light_red',
-      'bool'    => 'light_purple',
-      'keyword' => 'light_cyan',
-      'comment' => 'dark_grey',
-      'default' => 'none'
-    );
-  }
-
-  private function _colorize($type, $value) {
-    if (!empty($this->_colorMap[$type])) {
-      $colorName = $this->_colorMap[$type];
-    } else {
-      $colorName = $this->_colorMap['default'];
-    }
-
-    return sprintf(
-      "%s%s\033[0m",
-      static::$TERM_COLORS[$colorName],
-      $value
-    );
-  }
-
   private function _isSeen($value, $seen) {
     foreach ($seen as $v) {
       if ($v === $value)
@@ -269,5 +250,24 @@ class ColoredInspector implements Inspector {
     }
 
     return false;
+  }
+
+  /**
+   * Returns an associative array of an object's properties.
+   *
+   * This method is public so that subclasses may override it.
+   *
+   * @param object $value
+   * @return array
+   * */
+  public function objectVars($value) {
+    return get_object_vars($value);
+  }
+
+  private function _dumpObject($value) {
+    return $this->_dumpStructure(
+      sprintf('object(%s)', get_class($value)),
+      $this->objectVars($value)
+    );
   }
 }

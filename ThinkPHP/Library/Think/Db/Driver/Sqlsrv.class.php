@@ -27,20 +27,6 @@ class Sqlsrv extends Driver{
     );
 
     /**
-     * 解析pdo连接的dsn信息
-     * @access public
-     * @param array $config 连接信息
-     * @return string
-     */
-    protected function parseDsn($config){
-        $dsn  =   'sqlsrv:Database='.$config['database'].';Server='.$config['hostname'];
-        if(!empty($config['hostport'])) {
-            $dsn  .= ','.$config['hostport'];
-        }
-        return $dsn;
-    }
-
-    /**
      * 取得数据表的字段信息
      * @access public
      * @return array
@@ -85,30 +71,6 @@ class Sqlsrv extends Driver{
             $info[$key] = current($val);
         }
         return $info;
-    }
-
-	/**
-     * order分析
-     * @access protected
-     * @param mixed $order
-     * @return string
-     */
-    protected function parseOrder($order) {
-        return !empty($order)?  ' ORDER BY '.$order:' ORDER BY rand()';
-    }
-
-    /**
-     * 字段名分析
-     * @access protected
-     * @param string $key
-     * @return string
-     */
-    protected function parseKey(&$key) {
-        $key   =  trim($key);
-        if(!is_numeric($key) && !preg_match('/[,\'\"\*\(\)\[.\s]/',$key)) {
-           $key = '['.$key.']';
-        }
-        return $key;   
     }
 
     /**
@@ -161,6 +123,44 @@ class Sqlsrv extends Driver{
             .$this->parseLock(isset($options['lock'])?$options['lock']:false)
             .$this->parseComment(!empty($options['comment'])?$options['comment']:'');
         return $this->execute($sql,!empty($options['fetch_sql']) ? true : false);
+    }
+
+    /**
+     * 解析pdo连接的dsn信息
+     * @access public
+     * @param array $config 连接信息
+     * @return string
+     */
+    protected function parseDsn($config){
+        $dsn  =   'sqlsrv:Database='.$config['database'].';Server='.$config['hostname'];
+        if(!empty($config['hostport'])) {
+            $dsn  .= ','.$config['hostport'];
+        }
+        return $dsn;
+    }
+
+	/**
+     * order分析
+     * @access protected
+     * @param mixed $order
+     * @return string
+     */
+    protected function parseOrder($order) {
+        return !empty($order)?  ' ORDER BY '.$order:' ORDER BY rand()';
+    }
+
+    /**
+     * 字段名分析
+     * @access protected
+     * @param string $key
+     * @return string
+     */
+    protected function parseKey(&$key) {
+        $key   =  trim($key);
+        if(!is_numeric($key) && !preg_match('/[,\'\"\*\(\)\[.\s]/',$key)) {
+           $key = '['.$key.']';
+        }
+        return $key;
     }
 
 }

@@ -217,6 +217,26 @@ class Dispatcher {
     }
 
     /**
+     * 获得实际的模块名称
+     */
+    static private function getModule($var) {
+        $module   = (!empty($_GET[$var])?$_GET[$var]:C('DEFAULT_MODULE'));
+        unset($_GET[$var]);
+        if($maps = C('URL_MODULE_MAP')) {
+            if(isset($maps[strtolower($module)])) {
+                // 记录当前别名
+                define('MODULE_ALIAS',strtolower($module));
+                // 获取实际的模块名
+                return   ucfirst($maps[MODULE_ALIAS]);
+            }elseif(array_search(strtolower($module),$maps)){
+                // 禁止访问原始模块
+                return   '';
+            }
+        }
+        return strip_tags(ucfirst($module));
+    }
+
+    /**
      * 获得实际的控制器名称
      */
     static private function getController($var,$urlCase) {
@@ -239,26 +259,6 @@ class Dispatcher {
             (!empty($_GET[$var])?$_GET[$var]:C('DEFAULT_ACTION'));
         unset($_POST[$var],$_GET[$var]);
         return strip_tags( $urlCase? strtolower($action) : $action );
-    }
-
-    /**
-     * 获得实际的模块名称
-     */
-    static private function getModule($var) {
-        $module   = (!empty($_GET[$var])?$_GET[$var]:C('DEFAULT_MODULE'));
-        unset($_GET[$var]);
-        if($maps = C('URL_MODULE_MAP')) {
-            if(isset($maps[strtolower($module)])) {
-                // 记录当前别名
-                define('MODULE_ALIAS',strtolower($module));
-                // 获取实际的模块名
-                return   ucfirst($maps[MODULE_ALIAS]);
-            }elseif(array_search(strtolower($module),$maps)){
-                // 禁止访问原始模块
-                return   '';
-            }
-        }
-        return strip_tags(ucfirst($module));
     }
 
 }

@@ -100,21 +100,25 @@ class [MODEL]Model extends Model {
     }
 
     // 检查缓存目录(Runtime) 如果不存在则自动创建
-    static public function buildRuntime() {
-        if(!is_dir(RUNTIME_PATH)) {
-            mkdir(RUNTIME_PATH);
-        }elseif(!is_writeable(RUNTIME_PATH)) {
-            header('Content-Type:text/html; charset=utf-8');
-            exit('目录 [ '.RUNTIME_PATH.' ] 不可写！');
+
+    static public function buildDirSecure($dirs=array()) {
+        // 目录安全写入（默认开启）
+        defined('BUILD_DIR_SECURE')  or define('BUILD_DIR_SECURE',    true);
+        if(BUILD_DIR_SECURE) {
+            defined('DIR_SECURE_FILENAME')  or define('DIR_SECURE_FILENAME',    'index.html');
+            defined('DIR_SECURE_CONTENT')   or define('DIR_SECURE_CONTENT',     ' ');
+            // 自动写入目录安全文件
+            $content = DIR_SECURE_CONTENT;
+            $files = explode(',', DIR_SECURE_FILENAME);
+            foreach ($files as $filename){
+                foreach ($dirs as $dir)
+                    file_put_contents($dir.$filename,$content);
+            }
         }
-        mkdir(CACHE_PATH);  // 模板缓存目录
-        if(!is_dir(LOG_PATH))   mkdir(LOG_PATH);    // 日志目录
-        if(!is_dir(TEMP_PATH))  mkdir(TEMP_PATH);   // 数据缓存目录
-        if(!is_dir(DATA_PATH))  mkdir(DATA_PATH);   // 数据文件目录
-        return true;
     }
 
     // 创建控制器类
+
     static public function buildController($module,$controller='Index') {
         $file   =   APP_PATH.$module.'/Controller/'.$controller.'Controller'.EXT;
         if(!is_file($file)){
@@ -147,19 +151,18 @@ class [MODEL]Model extends Model {
     }
 
     // 生成目录安全文件
-    static public function buildDirSecure($dirs=array()) {
-        // 目录安全写入（默认开启）
-        defined('BUILD_DIR_SECURE')  or define('BUILD_DIR_SECURE',    true);
-        if(BUILD_DIR_SECURE) {
-            defined('DIR_SECURE_FILENAME')  or define('DIR_SECURE_FILENAME',    'index.html');
-            defined('DIR_SECURE_CONTENT')   or define('DIR_SECURE_CONTENT',     ' ');
-            // 自动写入目录安全文件
-            $content = DIR_SECURE_CONTENT;
-            $files = explode(',', DIR_SECURE_FILENAME);
-            foreach ($files as $filename){
-                foreach ($dirs as $dir)
-                    file_put_contents($dir.$filename,$content);
-            }
+
+    static public function buildRuntime() {
+        if(!is_dir(RUNTIME_PATH)) {
+            mkdir(RUNTIME_PATH);
+        }elseif(!is_writeable(RUNTIME_PATH)) {
+            header('Content-Type:text/html; charset=utf-8');
+            exit('目录 [ '.RUNTIME_PATH.' ] 不可写！');
         }
+        mkdir(CACHE_PATH);  // 模板缓存目录
+        if(!is_dir(LOG_PATH))   mkdir(LOG_PATH);    // 日志目录
+        if(!is_dir(TEMP_PATH))  mkdir(TEMP_PATH);   // 数据缓存目录
+        if(!is_dir(DATA_PATH))  mkdir(DATA_PATH);   // 数据文件目录
+        return true;
     }
 }

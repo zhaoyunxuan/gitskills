@@ -33,6 +33,32 @@ class HproseSimpleWriter {
         $this->classref = array();
         $this->fieldsref = array();
     }
+
+    public function writeLong($long) {
+        if ($long >= '0' && $long <= '9') {
+            $this->stream->write($long);
+        }
+        else {
+            $this->stream->write(HproseTags::TagLong . $long . HproseTags::TagSemicolon);
+        }
+    }
+
+    public function reset() {
+        $this->classref = array();
+        $this->fieldsref = array();
+    }
+
+    protected function writeObjectEnd($obj, $index) {
+            $fields = $this->fieldsref[$index];
+            $count = count($fields);
+            $this->stream->write(HproseTags::TagObject . $index . HproseTags::TagOpenbrace);
+            $array = (array)$obj;
+            for ($i = 0; $i < $count; ++$i) {
+                $this->serialize($array[$fields[$i]]);
+            }
+            $this->stream->write(HproseTags::TagClosebrace);
+    }
+
     public function serialize(&$var) {
         if ((!isset($var)) || ($var === NULL)) {
             $this->writeNull();
@@ -88,6 +114,11 @@ class HproseSimpleWriter {
             throw new HproseException('Not support to serialize this data');
         }
     }
+
+    public function writeNull() {
+        $this->stream->write(HproseTags::TagNull);
+    }
+
     public function writeInteger($integer) {
         if ($integer >= 0 && $integer <= 9) {
             $this->stream->write((string)$integer);
@@ -96,14 +127,11 @@ class HproseSimpleWriter {
             $this->stream->write(HproseTags::TagInteger . $integer . HproseTags::TagSemicolon);
         }
     }
-    public function writeLong($long) {
-        if ($long >= '0' && $long <= '9') {
-            $this->stream->write($long);
-        }
-        else {
-            $this->stream->write(HproseTags::TagLong . $long . HproseTags::TagSemicolon);
-        }
+
+    public function writeBoolean($bool) {
+        $this->stream->write($bool ? HproseTags::TagTrue : HproseTags::TagFalse);
     }
+
     public function writeDouble($double) {
         if (is_nan($double)) {
             $this->writeNaN();
@@ -115,21 +143,58 @@ class HproseSimpleWriter {
             $this->stream->write(HproseTags::TagDouble . $double . HproseTags::TagSemicolon);
         }
     }
+
     public function writeNaN() {
         $this->stream->write(HproseTags::TagNaN);
     }
+
     public function writeInfinity($positive = true) {
         $this->stream->write(HproseTags::TagInfinity . ($positive ? HproseTags::TagPos : HproseTags::TagNeg));
     }
-    public function writeNull() {
-        $this->stream->write(HproseTags::TagNull);
-    }
+
     public function writeEmpty() {
         $this->stream->write(HproseTags::TagEmpty);
     }
-    public function writeBoolean($bool) {
-        $this->stream->write($bool ? HproseTags::TagTrue : HproseTags::TagFalse);
+
+    public function writeUTF8Char($char) {
+        $this->stream->write(HproseTags::TagUTF8Char . $char);
     }
+
+    public function writeBytes($bytes, $checkRef = false) {
+        $len = strlen($bytes);
+        $this->stream->write(HproseTags::TagBytes);
+        if ($len > 0) $this->stream->write((string)$len);
+        $this->stream->write(HproseTags::TagQuote . $bytes . HproseTags::TagQuote);
+    }
+
+    public function writeList(&$list, $checkRef = false) {
+        $count = count($list);
+        $this->stream->write(HproseTags::TagList);
+        if ($count > 0) $this->stream->write((string)$count);
+        $this->stream->write(HproseTags::TagOpenbrace);
+        for ($i = 0; $i < $count; ++$i) {
+            $this->serialize($list[$i]);
+        }
+        $this->stream->write(HproseTags::TagClosebrace);
+    }
+
+    public function writeMap(&$map, $checkRef = false) {
+        $count = count($map);
+        $this->stream->write(HproseTags::TagMap);
+        if ($count > 0) $this->stream->write((string)$count);
+        $this->stream->write(HproseTags::TagOpenbrace);
+        foreach ($map as $key => &$value) {
+            $this->serialize($key);
+            $this->serialize($value);
+        }
+        $this->stream->write(HproseTags::TagClosebrace);
+    }
+
+    public function writeStdObject($obj, $checkRef = false) {
+        $map = (array)$obj;
+        self::writeMap($map);
+    }
+
     public function writeDate($date, $checkRef = false) {
         if ($date->utc) {
             $this->stream->write(HproseTags::TagDate . $date->toString(false));
@@ -138,6 +203,7 @@ class HproseSimpleWriter {
             $this->stream->write(HproseTags::TagDate . $date->toString(false) . HproseTags::TagSemicolon);
         }
     }
+
     public function writeTime($time, $checkRef = false) {
         if ($time->utc) {
             $this->stream->write(HproseTags::TagTime . $time->toString(false));
@@ -146,46 +212,11 @@ class HproseSimpleWriter {
             $this->stream->write(HproseTags::TagTime . $time->toString(false) . HproseTags::TagSemicolon);
         }
     }
-    public function writeBytes($bytes, $checkRef = false) {
-        $len = strlen($bytes);
-        $this->stream->write(HproseTags::TagBytes);
-        if ($len > 0) $this->stream->write((string)$len);
-        $this->stream->write(HproseTags::TagQuote . $bytes . HproseTags::TagQuote);
+
+    public function writeObject($obj, $checkRef = false) {
+        $this->writeObjectEnd($obj, $this->writeObjectBegin($obj));
     }
-    public function writeUTF8Char($char) {
-        $this->stream->write(HproseTags::TagUTF8Char . $char);
-    }
-    public function writeString($str, $checkRef = false) {
-        $len = ustrlen($str);
-        $this->stream->write(HproseTags::TagString);
-        if ($len > 0) $this->stream->write((string)$len);
-        $this->stream->write(HproseTags::TagQuote . $str . HproseTags::TagQuote);
-    }
-    public function writeList(&$list, $checkRef = false) {
-        $count = count($list);
-        $this->stream->write(HproseTags::TagList);
-        if ($count > 0) $this->stream->write((string)$count); 
-        $this->stream->write(HproseTags::TagOpenbrace);
-        for ($i = 0; $i < $count; ++$i) {
-            $this->serialize($list[$i]);
-        }
-        $this->stream->write(HproseTags::TagClosebrace);
-    }
-    public function writeMap(&$map, $checkRef = false) {
-        $count = count($map);
-        $this->stream->write(HproseTags::TagMap);
-        if ($count > 0) $this->stream->write((string)$count); 
-        $this->stream->write(HproseTags::TagOpenbrace);
-        foreach ($map as $key => &$value) {
-            $this->serialize($key);
-            $this->serialize($value);
-        }
-        $this->stream->write(HproseTags::TagClosebrace);
-    }
-    public function writeStdObject($obj, $checkRef = false) {
-        $map = (array)$obj;
-        self::writeMap($map);
-    }
+
     protected function writeObjectBegin($obj) {
         $class = get_class($obj);
         $alias = HproseClassManager::getClassAlias($class);
@@ -198,19 +229,7 @@ class HproseSimpleWriter {
         }
         return $index;
     }
-    protected function writeObjectEnd($obj, $index) {
-            $fields = $this->fieldsref[$index];
-            $count = count($fields);
-            $this->stream->write(HproseTags::TagObject . $index . HproseTags::TagOpenbrace);
-            $array = (array)$obj;
-            for ($i = 0; $i < $count; ++$i) {
-                $this->serialize($array[$fields[$i]]);
-            }
-            $this->stream->write(HproseTags::TagClosebrace);
-    }
-    public function writeObject($obj, $checkRef = false) {
-        $this->writeObjectEnd($obj, $this->writeObjectBegin($obj));
-    }
+
     protected function writeClass($alias, $fields) {
         $len = ustrlen($alias);
         $this->stream->write(HproseTags::TagClass . $len .
@@ -231,9 +250,12 @@ class HproseSimpleWriter {
         $this->fieldsref[$index] = $fields;
         return $index;
     }
-    public function reset() {
-        $this->classref = array();
-        $this->fieldsref = array();
+
+    public function writeString($str, $checkRef = false) {
+        $len = ustrlen($str);
+        $this->stream->write(HproseTags::TagString);
+        if ($len > 0) $this->stream->write((string)$len);
+        $this->stream->write(HproseTags::TagQuote . $str . HproseTags::TagQuote);
     }
 }
 class HproseWriter extends HproseSimpleWriter {
@@ -244,6 +266,11 @@ class HproseWriter extends HproseSimpleWriter {
         $this->ref = array();
         $this->arrayref = array();
     }
+
+    public function writeDate($date, $checkRef = false) {
+        $this->writeRef($date, $checkRef, NULL, array(&$this, 'parent::writeDate'));
+    }
+
     private function writeRef(&$obj, $checkRef, $writeBegin, $writeEnd) {
         if (is_string($obj)) {
             $key = 's_' . $obj;
@@ -268,9 +295,7 @@ class HproseWriter extends HproseSimpleWriter {
             call_user_func_array($writeEnd, array(&$obj, $result));
         }
     }
-    public function writeDate($date, $checkRef = false) {
-        $this->writeRef($date, $checkRef, NULL, array(&$this, 'parent::writeDate'));
-    }
+
     public function writeTime($time, $checkRef = false) {
         $this->writeRef($time, $checkRef, NULL, array(&$this, 'parent::writeTime'));
     }

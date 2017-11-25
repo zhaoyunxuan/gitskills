@@ -116,58 +116,58 @@ class Db {
    } 
 
     /**
-     * 读取Session 
-     * @access public 
-     * @param string $sessID 
+     * Session 垃圾回收
+     * @access public
+     * @param string $sessMaxLifeTime
      */
-   public function read($sessID) { 
+   public function gc($sessMaxLifeTime) {
+       $hander = 	is_array($this->hander)?$this->hander[0]:$this->hander;
+       mysql_query('DELETE FROM '.$this->sessionTable.' WHERE session_expire < '.time(),$hander);
+       return mysql_affected_rows($hander);
+   }
+
+    /**
+     * 读取Session
+     * @access public
+     * @param string $sessID
+     */
+   public function read($sessID) {
        $hander 	= 	is_array($this->hander)?$this->hander[1]:$this->hander;
-       $res 	= 	mysql_query('SELECT session_data AS data FROM '.$this->sessionTable." WHERE session_id = '$sessID'   AND session_expire >".time(),$hander); 
+       $res 	= 	mysql_query('SELECT session_data AS data FROM '.$this->sessionTable." WHERE session_id = '$sessID'   AND session_expire >".time(),$hander);
        if($res) {
            $row = 	mysql_fetch_assoc($res);
-           return $row['data']; 
+           return $row['data'];
        }
-       return ""; 
-   } 
+       return "";
+   }
 
     /**
-     * 写入Session 
-     * @access public 
-     * @param string $sessID 
-     * @param String $sessData  
+     * 写入Session
+     * @access public
+     * @param string $sessID
+     * @param String $sessData
      */
-   public function write($sessID,$sessData) { 
+   public function write($sessID,$sessData) {
        $hander 		= 	is_array($this->hander)?$this->hander[0]:$this->hander;
-       $expire 		= 	time() + $this->lifeTime; 
+       $expire 		= 	time() + $this->lifeTime;
        $sessData 	= 	addslashes($sessData);
-       mysql_query('REPLACE INTO  '.$this->sessionTable." (  session_id, session_expire, session_data)  VALUES( '$sessID', '$expire',  '$sessData')",$hander); 
-       if(mysql_affected_rows($hander)) 
-           return true; 
-       return false; 
-   } 
+       mysql_query('REPLACE INTO  '.$this->sessionTable." (  session_id, session_expire, session_data)  VALUES( '$sessID', '$expire',  '$sessData')",$hander);
+       if(mysql_affected_rows($hander))
+           return true;
+       return false;
+   }
 
     /**
-     * 删除Session 
-     * @access public 
-     * @param string $sessID 
+     * 删除Session
+     * @access public
+     * @param string $sessID
      */
-   public function destroy($sessID) { 
+   public function destroy($sessID) {
        $hander 	= 	is_array($this->hander)?$this->hander[0]:$this->hander;
-       mysql_query('DELETE FROM '.$this->sessionTable." WHERE session_id = '$sessID'",$hander); 
-       if(mysql_affected_rows($hander)) 
-           return true; 
-       return false; 
-   } 
-
-    /**
-     * Session 垃圾回收
-     * @access public 
-     * @param string $sessMaxLifeTime 
-     */
-   public function gc($sessMaxLifeTime) { 
-       $hander = 	is_array($this->hander)?$this->hander[0]:$this->hander;
-       mysql_query('DELETE FROM '.$this->sessionTable.' WHERE session_expire < '.time(),$hander); 
-       return mysql_affected_rows($hander); 
-   } 
+       mysql_query('DELETE FROM '.$this->sessionTable." WHERE session_id = '$sessID'",$hander);
+       if(mysql_affected_rows($hander))
+           return true;
+       return false;
+   }
 
 }

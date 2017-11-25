@@ -15,13 +15,76 @@ class CodeSwitch {
     // 提示信息
     static private $info = array();
     // 记录错误
-    static private function error($msg) {
-        self::$error[]   =  $msg;
-    }
+
+	/**
+     * 对整个项目目录中的PHP和HTML文件行进编码转换
+     * @access public
+     * @param string $app		要遍历的项目路径
+     * @param string $mode		遍历模式,一般取FILES,这样只返回带路径的文件名
+     * @param array $file_types		文件后缀过滤数组
+     * @return void
+     */
+	static function CodingSwitch($app = "./",$charset='UTF-8',$mode = "FILES",$file_types = array(".html",".php")) {
+		self::info("注意: 程序使用的文件编码检测算法可能对某些特殊字符不适用");
+		$filearr = self::searchdir($app,$mode,$file_types);
+		foreach($filearr as $file)
+			self::DetectAndSwitch($file,$charset);
+	}
     // 记录信息
+
     static private function info($info) {
         self::$info[]     = $info;
     }
+
+	/**
+     * 目录遍历函数
+     * @access public
+     * @param string $path		要遍历的目录名
+     * @param string $mode		遍历模式,一般取FILES,这样只返回带路径的文件名
+     * @param array $file_types		文件后缀过滤数组
+	 * @param int $maxdepth		遍历深度,-1表示遍历到最底层
+     * @return void
+     */
+	static function searchdir($path,$mode = "FULL",$file_types = array(".html",".php"),$maxdepth = -1,$d = 0) {
+	   if(substr($path,strlen($path)-1) != '/')
+		   $path .= '/';
+	   $dirlist = array();
+	   if($mode != "FILES")
+			$dirlist[] = $path;
+	   if($handle = @opendir($path)) {
+		   while(false !== ($file = readdir($handle)))
+		   {
+			   if($file != '.' && $file != '..')
+			   {
+				   $file = $path.$file ;
+				   if(!is_dir($file))
+				   {
+						if($mode != "DIRS")
+						{
+							$extension = "";
+							$extpos = strrpos($file, '.');
+							if($extpos!==false)
+								$extension = substr($file,$extpos,strlen($file)-$extpos);
+							$extension=strtolower($extension);
+							if(in_array($extension, $file_types))
+								$dirlist[] = $file;
+						}
+				   }
+				   elseif($d >= 0 && ($d < $maxdepth || $maxdepth < 0))
+				   {
+					   $result = self::searchdir($file.'/',$mode,$file_types,$maxdepth,$d + 1) ;
+					   $dirlist = array_merge($dirlist,$result);
+				   }
+			   }
+		   }
+		   closedir ( $handle ) ;
+	   }
+	   if($d == 0)
+		   natcasesort($dirlist);
+
+	   return($dirlist) ;
+	}
+
 	/**
      * 编码转换函数,对整个文件进行编码转换
 	 * 支持以下转换
@@ -126,69 +189,9 @@ class CodeSwitch {
 		}
 	}
 
-	/**
-     * 目录遍历函数
-     * @access public
-     * @param string $path		要遍历的目录名
-     * @param string $mode		遍历模式,一般取FILES,这样只返回带路径的文件名
-     * @param array $file_types		文件后缀过滤数组
-	 * @param int $maxdepth		遍历深度,-1表示遍历到最底层
-     * @return void
-     */
-	static function searchdir($path,$mode = "FULL",$file_types = array(".html",".php"),$maxdepth = -1,$d = 0) {
-	   if(substr($path,strlen($path)-1) != '/')
-		   $path .= '/';
-	   $dirlist = array();
-	   if($mode != "FILES")
-			$dirlist[] = $path;
-	   if($handle = @opendir($path)) {
-		   while(false !== ($file = readdir($handle)))
-		   {
-			   if($file != '.' && $file != '..')
-			   {
-				   $file = $path.$file ;
-				   if(!is_dir($file))
-				   {
-						if($mode != "DIRS")
-						{
-							$extension = "";
-							$extpos = strrpos($file, '.');
-							if($extpos!==false)
-								$extension = substr($file,$extpos,strlen($file)-$extpos);
-							$extension=strtolower($extension);
-							if(in_array($extension, $file_types))
-								$dirlist[] = $file;
-						}
-				   }
-				   elseif($d >= 0 && ($d < $maxdepth || $maxdepth < 0))
-				   {
-					   $result = self::searchdir($file.'/',$mode,$file_types,$maxdepth,$d + 1) ;
-					   $dirlist = array_merge($dirlist,$result);
-				   }
-			   }
-		   }
-		   closedir ( $handle ) ;
-	   }
-	   if($d == 0)
-		   natcasesort($dirlist);
-
-	   return($dirlist) ;
-	}
-
-	/**
-     * 对整个项目目录中的PHP和HTML文件行进编码转换
-     * @access public
-     * @param string $app		要遍历的项目路径
-     * @param string $mode		遍历模式,一般取FILES,这样只返回带路径的文件名
-     * @param array $file_types		文件后缀过滤数组
-     * @return void
-     */
-	static function CodingSwitch($app = "./",$charset='UTF-8',$mode = "FILES",$file_types = array(".html",".php")) {
-		self::info("注意: 程序使用的文件编码检测算法可能对某些特殊字符不适用");
-		$filearr = self::searchdir($app,$mode,$file_types);
-		foreach($filearr as $file)
-			self::DetectAndSwitch($file,$charset);
-	}
+    static private function error($msg) {
+        self::$error[]   =  $msg;
+    }
 
     static public function getError() {
         return self::$error;

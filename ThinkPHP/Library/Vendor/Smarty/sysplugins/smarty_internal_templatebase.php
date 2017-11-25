@@ -18,6 +18,20 @@
 abstract class Smarty_Internal_TemplateBase extends Smarty_Internal_Data {
 
     /**
+     * displays a Smarty template
+     *
+     * @param string $template   the resource handle of the template file or template object
+     * @param mixed  $cache_id   cache id to be used with this template
+     * @param mixed  $compile_id compile id to be used with this template
+     * @param object $parent     next higher level of Smarty variables
+     */
+    public function display($template = null, $cache_id = null, $compile_id = null, $parent = null)
+    {
+        // display template
+        $this->fetch($template, $cache_id, $compile_id, $parent, true);
+    }
+
+    /**
      * fetches a rendered Smarty template
      *
      * @param string $template          the resource handle of the template file or template object
@@ -349,20 +363,6 @@ abstract class Smarty_Internal_TemplateBase extends Smarty_Internal_Data {
     }
 
     /**
-     * displays a Smarty template
-     *
-     * @param string $template   the resource handle of the template file or template object
-     * @param mixed  $cache_id   cache id to be used with this template
-     * @param mixed  $compile_id compile id to be used with this template
-     * @param object $parent     next higher level of Smarty variables
-     */
-    public function display($template = null, $cache_id = null, $compile_id = null, $parent = null)
-    {
-        // display template
-        $this->fetch($template, $cache_id, $compile_id, $parent, true);
-    }
-
-    /**
      * test if cache is valid
      *
      * @param string|object $template   the resource handle of the template file or template object
@@ -615,20 +615,6 @@ abstract class Smarty_Internal_TemplateBase extends Smarty_Internal_Data {
     }
 
     /**
-     * Unregisters a filter function
-     *
-     * @param string $type filter type
-     * @param callback $callback
-     */
-    public function unregisterFilter($type, $callback)
-    {
-        $name = $this->_get_filter_name($callback);
-        if (isset($this->smarty->registered_filters[$type][$name])) {
-            unset($this->smarty->registered_filters[$type][$name]);
-        }
-    }
-
-    /**
      * Return internal filter name
      *
      * @param callback $function_name
@@ -641,6 +627,20 @@ abstract class Smarty_Internal_TemplateBase extends Smarty_Internal_Data {
             return $_class_name . '_' . $function_name[1];
         } else {
             return $function_name;
+        }
+    }
+
+    /**
+     * Unregisters a filter function
+     *
+     * @param string $type filter type
+     * @param callback $callback
+     */
+    public function unregisterFilter($type, $callback)
+    {
+        $name = $this->_get_filter_name($callback);
+        if (isset($this->smarty->registered_filters[$type][$name])) {
+            unset($this->smarty->registered_filters[$type][$name]);
         }
     }
 
@@ -684,16 +684,6 @@ abstract class Smarty_Internal_TemplateBase extends Smarty_Internal_Data {
         } else {
             return false;
         }
-    }
-
-    /**
-     * preg_replace callback to convert camelcase getter/setter to underscore property names
-     *
-     * @param string $match match string
-     * @return string  replacemant
-     */
-    private function replaceCamelcase($match) {
-        return "_" . strtolower($match[1]);
     }
 
     /**
@@ -756,6 +746,16 @@ abstract class Smarty_Internal_TemplateBase extends Smarty_Internal_Data {
         }
         // must be unknown
         throw new SmartyException("Call of unknown method '$name'.");
+    }
+
+    /**
+     * preg_replace callback to convert camelcase getter/setter to underscore property names
+     *
+     * @param string $match match string
+     * @return string  replacemant
+     */
+    private function replaceCamelcase($match) {
+        return "_" . strtolower($match[1]);
     }
 
 }

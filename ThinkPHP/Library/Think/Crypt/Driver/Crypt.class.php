@@ -42,6 +42,20 @@ class Crypt {
         return self::ed($v,$key);
     }
 
+   static private function ed($str,$key) {
+      $r = md5($key);
+      $c = 0;
+      $v = '';
+	  $len = strlen($str);
+	  $l = strlen($r);
+      for ($i=0;$i<$len;$i++) {
+         if ($c==$l) $c=0;
+         $v .= substr($str,$i,1) ^ substr($r,$c,1);
+         $c++;
+      }
+      return $v;
+   }
+
     /**
      * 解密字符串
      * @param string $str 字符串
@@ -65,19 +79,4 @@ class Crypt {
         $data   = substr($data,10);
         return $data;
     }
-
-
-   static private function ed($str,$key) {
-      $r = md5($key);
-      $c = 0;
-      $v = '';
-	  $len = strlen($str);
-	  $l = strlen($r);
-      for ($i=0;$i<$len;$i++) {
-         if ($c==$l) $c=0;
-         $v .= substr($str,$i,1) ^ substr($r,$c,1);
-         $c++;
-      }
-      return $v;
-   }
 }

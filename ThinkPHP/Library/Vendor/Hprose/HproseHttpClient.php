@@ -25,6 +25,7 @@ require_once('HproseIO.php');
 require_once('HproseClient.php');
 
 abstract class HproseBaseHttpClient extends HproseClient {
+    protected static $cookieManager = array();
     protected $host;
     protected $path;
     protected $secure;
@@ -33,16 +34,79 @@ abstract class HproseBaseHttpClient extends HproseClient {
     protected $timeout;
     protected $keepAlive;
     protected $keepAliveTimeout;
-    protected static $cookieManager = array();
+
+    public function __construct($url = '') {
+        parent::__construct($url);
+        $this->header = array('Content-type' => 'application/hprose');
+    }
+
     static function hproseKeepCookieInSession() {
         $_SESSION['HPROSE_COOKIE_MANAGER'] = self::$cookieManager;
     }
+
     public static function keepSession() {
         if (array_key_exists('HPROSE_COOKIE_MANAGER', $_SESSION)) {
             self::$cookieManager = $_SESSION['HPROSE_COOKIE_MANAGER'];
         }
         register_shutdown_function(array('HproseBaseHttpClient', 'hproseKeepCookieInSession'));
     }
+
+    public function useService($url = '', $namespace = '') {
+        $serviceProxy = parent::useService($url, $namespace);
+        if ($url) {
+            $url = parse_url($url);
+            $this->secure = (strtolower($url['scheme']) == 'https');
+            $this->host = strtolower($url['host']);
+            $this->path = $url['path'];
+            $this->timeout = 30000;
+            $this->keepAlive = false;
+            $this->keepAliveTimeout = 300;
+        }
+        return $serviceProxy;
+    }
+
+    public function setHeader($name, $value) {
+        $lname = strtolower($name);
+        if ($lname != 'content-type' &&
+            $lname != 'content-length' &&
+            $lname != 'host') {
+            if ($value) {
+                $this->header[$name] = $value;
+            }
+            else {
+                unset($this->header[$name]);
+            }
+        }
+    }
+
+    public function setProxy($proxy = NULL) {
+        $this->proxy = $proxy;
+    }
+
+    public function getTimeout() {
+        return $this->timeout;
+    }
+
+    public function setTimeout($timeout) {
+        $this->timeout = $timeout;
+    }
+
+    public function getKeepAlive() {
+        return $this->keeepAlive;
+    }
+
+    public function setKeepAlive($keepAlive = true) {
+        $this->keepAlive = $keepAlive;
+    }
+
+    public function getKeepAliveTimeout() {
+        return $this->keepAliveTimeout;
+    }
+
+    public function setKeepAliveTimeout($timeout) {
+        $this->keepAliveTimeout = $timeout;
+    }
+
     protected function setCookie($headers) {
         foreach ($headers as $header) {
             @list($name, $value) = explode(':', $header, 2);
@@ -81,7 +145,7 @@ abstract class HproseBaseHttpClient extends HproseClient {
             }
         }
     }
-    protected abstract function formatCookie($cookies);
+
     protected function getCookie() {
         $cookies = array();
         foreach (self::$cookieManager as $domain => $cookieList) {
@@ -105,57 +169,8 @@ abstract class HproseBaseHttpClient extends HproseClient {
         }
         return $this->formatCookie($cookies);
     }
-    public function __construct($url = '') {
-        parent::__construct($url);
-        $this->header = array('Content-type' => 'application/hprose');
-    }
-    public function useService($url = '', $namespace = '') {
-        $serviceProxy = parent::useService($url, $namespace);
-        if ($url) {
-            $url = parse_url($url);
-            $this->secure = (strtolower($url['scheme']) == 'https');
-            $this->host = strtolower($url['host']);
-            $this->path = $url['path'];
-            $this->timeout = 30000;
-            $this->keepAlive = false;
-            $this->keepAliveTimeout = 300;
-        }
-        return $serviceProxy;
-    }
-    public function setHeader($name, $value) {
-        $lname = strtolower($name);
-        if ($lname != 'content-type' &&
-            $lname != 'content-length' &&
-            $lname != 'host') {
-            if ($value) {
-                $this->header[$name] = $value;
-            }
-            else {
-                unset($this->header[$name]);
-            }
-        }
-    }
-    public function setProxy($proxy = NULL) {
-        $this->proxy = $proxy;
-    }
-    public function setTimeout($timeout) {
-        $this->timeout = $timeout;
-    }
-    public function getTimeout() {
-        return $this->timeout;
-    }
-    public function setKeepAlive($keepAlive = true) {
-        $this->keepAlive = $keepAlive;
-    }
-    public function getKeepAlive() {
-        return $this->keeepAlive;
-    }
-    public function setKeepAliveTimeout($timeout) {
-        $this->keepAliveTimeout = $timeout;
-    }
-    public function getKeepAliveTimeout() {
-        return $this->keepAliveTimeout;
-    }
+
+    protected abstract function formatCookie($cookies);
 }
 
 if (class_exists('SaeFetchurl')) {

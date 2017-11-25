@@ -18,17 +18,6 @@ class Firebird extends Driver{
     protected $selectSql  =     'SELECT %LIMIT% %DISTINCT% %FIELD% FROM %TABLE%%JOIN%%WHERE%%GROUP%%HAVING%%ORDER%';
 
     /**
-     * 解析pdo连接的dsn信息
-     * @access public
-     * @param array $config 连接信息
-     * @return string
-     */
-    protected function parseDsn($config){
-       $dsn  =   'firebird:dbname='.$config['hostname'].'/'.($config['hostport']?:3050).':'.$config['database'];
-       return $dsn;
-    }
-    
-    /**
      * 执行语句
      * @access public
      * @param string $str  sql指令
@@ -73,6 +62,16 @@ class Firebird extends Driver{
             $this->numRows = $this->PDOStatement->rowCount();
             return $this->numRows;
         }
+    }
+    
+    /**
+     * SQL指令安全过滤
+     * @access public
+     * @param string $str  SQL指令
+     * @return string
+     */
+    public function escapeString($str) {
+        return str_replace("'", "''", $str);
     }
     
     /**
@@ -121,16 +120,6 @@ class Firebird extends Driver{
     }
     
     /**
-     * SQL指令安全过滤
-     * @access public
-     * @param string $str  SQL指令
-     * @return string
-     */
-    public function escapeString($str) {
-        return str_replace("'", "''", $str);
-    }
-
-    /**
      * limit
      * @access public
      * @param $limit limit表达式
@@ -147,5 +136,16 @@ class Firebird extends Driver{
             }
         }
         return $limitStr;
+    }
+
+    /**
+     * 解析pdo连接的dsn信息
+     * @access public
+     * @param array $config 连接信息
+     * @return string
+     */
+    protected function parseDsn($config){
+       $dsn  =   'firebird:dbname='.$config['hostname'].'/'.($config['hostport']?:3050).':'.$config['database'];
+       return $dsn;
     }
 }

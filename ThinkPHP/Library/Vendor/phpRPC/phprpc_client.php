@@ -78,12 +78,15 @@ class PHPRPC_Error {
         $this->Number = $errno;
         $this->Message = $errstr;
     }
-    function toString() {
-        return $this->Number . ":" . $this->Message;
-    }
+
     function __toString() {
         return $this->toString();
     }
+
+    function toString() {
+        return $this->Number . ":" . $this->Message;
+    }
+
     function getNumber() {
         return $this->Number;
     }
@@ -186,6 +189,14 @@ class _PHPRPC_Client {
         $this->_server['user'] = $urlparts['user'];
         $this->_server['pass'] = $urlparts['pass'];
     }
+
+    function _disconnect() {
+        if ($this->_socket !== false) {
+            fclose($this->_socket);
+            $this->_socket = false;
+        }
+    }
+
     function setProxy($host, $port = NULL, $username = NULL, $password = NULL) {
         if (is_null($host)) {
             $this->_proxy = NULL;
@@ -216,6 +227,7 @@ class _PHPRPC_Client {
             $this->_proxy['pass'] = $password;
         }
     }
+
     function setKeyLength($keylen) {
         if (!is_null($this->_key)) {
             return false;
@@ -225,9 +237,15 @@ class _PHPRPC_Client {
             return true;
         }
     }
+
     function getKeyLength() {
         return $this->_keylen;
     }
+
+    function getEncryptMode() {
+        return $this->_encryptMode;
+    }
+
     function setEncryptMode($encryptMode) {
         if (($encryptMode >= 0) && ($encryptMode <= 3)) {
             $this->_encryptMode = (int)($encryptMode);
@@ -238,21 +256,23 @@ class _PHPRPC_Client {
             return false;
         }
     }
-    function getEncryptMode() {
-        return $this->_encryptMode;
-    }
-    function setCharset($charset) {
-        $this->_charset = $charset;
-    }
+
     function getCharset() {
         return $this->_charset;
     }
-    function setTimeout($timeout) {
-        $this->_timeout = $timeout;
+
+    function setCharset($charset) {
+        $this->_charset = $charset;
     }
+
     function getTimeout() {
         return $this->_timeout;
     }
+
+    function setTimeout($timeout) {
+        $this->_timeout = $timeout;
+    }
+
     function invoke($funcname, &$args, $byRef = false) {
         $result = $this->_key_exchange();
         if (is_a($result, 'PHPRPC_Error')) {
@@ -304,47 +324,46 @@ class _PHPRPC_Client {
         return $result;
     }
 
-    function getOutput() {
-        return $this->_output;
-    }
-
-    function getWarning() {
-        return $this->_warning;
-    }
-
-    function _connect() {
-        if (is_null($this->_proxy)) {
-            $host = (($this->_server['scheme'] == "https") ? "ssl://" : "") . $this->_server['host'];
-            $this->_socket = @pfsockopen($host, $this->_server['port'], $errno, $errstr, $this->_timeout);
+    function _key_exchange() {
+        if (!is_null($this->_key) || ($this->_encryptMode == 0)) return true;
+        $request = "phprpc_encrypt=true&phprpc_keylen={$this->_keylen}";
+        $result = $this->_post($request);
+        if (is_a($result, 'PHPRPC_Error')) {
+            return $result;
+        }
+        if (array_key_exists('phprpc_keylen', $result)) {
+            $this->_keylen = (int)$result['phprpc_keylen'];
         }
         else {
-            $host = (($this->_server['scheme'] == "https") ? "ssl://" : "") . $this->_proxy['host'];
-            $this->_socket = @pfsockopen($host, $this->_proxy['port'], $errno, $errstr, $this->_timeout);
+            $this->_keylen = 128;
         }
-        if ($this->_socket === false) {
-            return new PHPRPC_Error($errno, $errstr);
+        if (array_key_exists('phprpc_encrypt', $result)) {
+            $encrypt = unserialize(base64_decode($result['phprpc_encrypt']));
+            require_once('bigint.php');
+            require_once('xxtea.php');
+            $x = bigint_random($this->_keylen - 1, true);
+            $key = bigint_powmod(bigint_dec2num($encrypt['y']), $x, bigint_dec2num($encrypt['p']));
+            if ($this->_keylen == 128) {
+                $key = bigint_num2str($key);
+            }
+            else {
+                $key = pack('H*', md5(bigint_num2dec($key)));
+            }
+            $this->_key = str_pad($key, 16, "\0", STR_PAD_LEFT);
+            $encrypt = bigint_num2dec(bigint_powmod(bigint_dec2num($encrypt['g']), $x, bigint_dec2num($encrypt['p'])));
+            $request = "phprpc_encrypt=$encrypt";
+            $result = $this->_post($request);
+            if (is_a($result, 'PHPRPC_Error')) {
+                return $result;
+            }
         }
-        stream_set_write_buffer($this->_socket, 0);
-        socket_set_timeout($this->_socket, $this->_timeout);
+        else {
+            $this->_key = NULL;
+            $this->_encryptMode = 0;
+        }
         return true;
     }
 
-    function _disconnect() {
-        if ($this->_socket !== false) {
-            fclose($this->_socket);
-            $this->_socket = false;
-        }
-    }
-
-    function _socket_read($size) {
-        $content = "";
-        while (!feof($this->_socket) && ($size > 0)) {
-            $str = fread($this->_socket, $size);
-            $content .= $str;
-            $size -= strlen($str);
-        }
-        return $content;
-    }
     function _post($request_body) {
         global $_PHPRPC_COOKIE;
         $request_body = 'phprpc_id=' . $this->_clientid . '&' . $request_body;
@@ -455,6 +474,24 @@ class _PHPRPC_Client {
         }
         return $this->_parseBody($response_body);
     }
+
+    function _connect() {
+        if (is_null($this->_proxy)) {
+            $host = (($this->_server['scheme'] == "https") ? "ssl://" : "") . $this->_server['host'];
+            $this->_socket = @pfsockopen($host, $this->_server['port'], $errno, $errstr, $this->_timeout);
+        }
+        else {
+            $host = (($this->_server['scheme'] == "https") ? "ssl://" : "") . $this->_proxy['host'];
+            $this->_socket = @pfsockopen($host, $this->_proxy['port'], $errno, $errstr, $this->_timeout);
+        }
+        if ($this->_socket === false) {
+            return new PHPRPC_Error($errno, $errstr);
+        }
+        stream_set_write_buffer($this->_socket, 0);
+        socket_set_timeout($this->_socket, $this->_timeout);
+        return true;
+    }
+
     function _parseHeader($header) {
         global $_PHPRPC_COOKIE, $_PHPRPC_COOKIES;
         if (preg_match('/PHPRPC Server\/([^,]*)(,|$)/i', implode(',', $header['x-powered-by']), $match)) {
@@ -495,6 +532,17 @@ class _PHPRPC_Client {
                      'content_length' => $content_length,
                      'connection' => $connection);
     }
+
+    function _socket_read($size) {
+        $content = "";
+        while (!feof($this->_socket) && ($size > 0)) {
+            $str = fread($this->_socket, $size);
+            $content .= $str;
+            $size -= strlen($str);
+        }
+        return $content;
+    }
+
     function _parseBody($body) {
         $body = explode(";\r\n", $body);
         $result = array();
@@ -509,56 +557,27 @@ class _PHPRPC_Client {
         }
         return $result;
     }
-    function _key_exchange() {
-        if (!is_null($this->_key) || ($this->_encryptMode == 0)) return true;
-        $request = "phprpc_encrypt=true&phprpc_keylen={$this->_keylen}";
-        $result = $this->_post($request);
-        if (is_a($result, 'PHPRPC_Error')) {
-            return $result;
-        }
-        if (array_key_exists('phprpc_keylen', $result)) {
-            $this->_keylen = (int)$result['phprpc_keylen'];
-        }
-        else {
-            $this->_keylen = 128;
-        }
-        if (array_key_exists('phprpc_encrypt', $result)) {
-            $encrypt = unserialize(base64_decode($result['phprpc_encrypt']));
-            require_once('bigint.php');
-            require_once('xxtea.php');
-            $x = bigint_random($this->_keylen - 1, true);
-            $key = bigint_powmod(bigint_dec2num($encrypt['y']), $x, bigint_dec2num($encrypt['p']));
-            if ($this->_keylen == 128) {
-                $key = bigint_num2str($key);
-            }
-            else {
-                $key = pack('H*', md5(bigint_num2dec($key)));
-            }
-            $this->_key = str_pad($key, 16, "\0", STR_PAD_LEFT);
-            $encrypt = bigint_num2dec(bigint_powmod(bigint_dec2num($encrypt['g']), $x, bigint_dec2num($encrypt['p'])));
-            $request = "phprpc_encrypt=$encrypt";
-            $result = $this->_post($request);
-            if (is_a($result, 'PHPRPC_Error')) {
-                return $result;
-            }
-        }
-        else {
-            $this->_key = NULL;
-            $this->_encryptMode = 0;
-        }
-        return true;
-    }
+
     function _encrypt($str, $level) {
         if (!is_null($this->_key) && ($this->_encryptMode >= $level)) {
             $str = xxtea_encrypt($str, $this->_key);
         }
         return $str;
     }
+
     function _decrypt($str, $level) {
         if (!is_null($this->_key) && ($this->_encryptMode >= $level)) {
             $str = xxtea_decrypt($str, $this->_key);
         }
         return $str;
+    }
+
+    function getOutput() {
+        return $this->_output;
+    }
+
+    function getWarning() {
+        return $this->_warning;
     }
 }
 

@@ -61,6 +61,39 @@ class RestController extends Controller {
     }
 
     /**
+     * 获取当前请求的Accept头信息
+     * @return string
+     */
+    protected function getAcceptType(){
+        $type = array(
+            'xml'   =>  'application/xml,text/xml,application/x-xml',
+            'json'  =>  'application/json,text/x-json,application/jsonrequest,text/json',
+            'js'    =>  'text/javascript,application/javascript,application/x-javascript',
+            'css'   =>  'text/css',
+            'rss'   =>  'application/rss+xml',
+            'yaml'  =>  'application/x-yaml,text/yaml',
+            'atom'  =>  'application/atom+xml',
+            'pdf'   =>  'application/pdf',
+            'text'  =>  'text/plain',
+            'png'   =>  'image/png',
+            'jpg'   =>  'image/jpg,image/jpeg,image/pjpeg',
+            'gif'   =>  'image/gif',
+            'csv'   =>  'text/csv',
+            'html'  =>  'text/html,application/xhtml+xml,*/*'
+        );
+
+        foreach($type as $key=>$val){
+            $array   =  explode(',',$val);
+            foreach($array as $k=>$v){
+                if(stristr($_SERVER['HTTP_ACCEPT'], $v)) {
+                    return $key;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * 魔术方法 有不存在的操作的时候执行
      * @access public
      * @param string $method 方法名
@@ -90,40 +123,21 @@ class RestController extends Controller {
         }
     }
 
+    // 发送Http状态信息
+
     /**
-     * 获取当前请求的Accept头信息
-     * @return string
+     * 输出返回数据
+     * @access protected
+     * @param mixed $data 要返回的数据
+     * @param String $type 返回类型 JSON XML
+     * @param integer $code HTTP状态
+     * @return void
      */
-    protected function getAcceptType(){
-        $type = array(
-            'xml'   =>  'application/xml,text/xml,application/x-xml',
-            'json'  =>  'application/json,text/x-json,application/jsonrequest,text/json',
-            'js'    =>  'text/javascript,application/javascript,application/x-javascript',
-            'css'   =>  'text/css',
-            'rss'   =>  'application/rss+xml',
-            'yaml'  =>  'application/x-yaml,text/yaml',
-            'atom'  =>  'application/atom+xml',
-            'pdf'   =>  'application/pdf',
-            'text'  =>  'text/plain',
-            'png'   =>  'image/png',
-            'jpg'   =>  'image/jpg,image/jpeg,image/pjpeg',
-            'gif'   =>  'image/gif',
-            'csv'   =>  'text/csv',
-            'html'  =>  'text/html,application/xhtml+xml,*/*'
-        );
-        
-        foreach($type as $key=>$val){
-            $array   =  explode(',',$val);
-            foreach($array as $k=>$v){
-                if(stristr($_SERVER['HTTP_ACCEPT'], $v)) {
-                    return $key;
-                }
-            }
-        }
-        return false;
+    protected function response($data,$type='',$code=200) {
+        $this->sendHttpStatus($code);
+        exit($this->encodeData($data,strtolower($type)));
     }
 
-    // 发送Http状态信息
     protected function sendHttpStatus($code) {
         static $_status = array(
             // Informational 1xx
@@ -217,18 +231,5 @@ class RestController extends Controller {
         $type = strtolower($type);
         if(isset($this->allowOutputType[$type])) //过滤content_type
             header('Content-Type: '.$this->allowOutputType[$type].'; charset='.$charset);
-    }
-
-    /**
-     * 输出返回数据
-     * @access protected
-     * @param mixed $data 要返回的数据
-     * @param String $type 返回类型 JSON XML
-     * @param integer $code HTTP状态
-     * @return void
-     */
-    protected function response($data,$type='',$code=200) {
-        $this->sendHttpStatus($code);
-        exit($this->encodeData($data,strtolower($type)));
     }
 }

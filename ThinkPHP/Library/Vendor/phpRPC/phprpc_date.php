@@ -294,6 +294,78 @@ class PHPRPC_Date {
         return false;
     }
 
+    function parse($dt) {
+        if (is_a($dt, 'PHPRPC_Date')) {
+            return $dt;
+        }
+        if (is_int($dt)) {
+            return new PHPRPC_Date($dt);
+        }
+        $shortFormat = '(\d|\d{2}|\d{3}|\d{4})-([1-9]|0[1-9]|1[012])-([1-9]|0[1-9]|[12]\d|3[01])';
+        if (preg_match("/^$shortFormat$/", $dt, $match)) {
+            $year   = intval($match[1]);
+            $month  = intval($match[2]);
+            $day    = intval($match[3]);
+            if (PHPRPC_Date::isValidDate($year, $month, $day)) {
+                $date = new PHPRPC_Date(false);
+                $date->year  = $year;
+                $date->month = $month;
+                $date->day   = $day;
+                return $date;
+            }
+            else {
+                return false;
+            }
+        }
+        $longFormat = $shortFormat . ' (\d|0\d|1\d|2[0-3]):(\d|[0-5]\d):(\d|[0-5]\d)';
+        if (preg_match("/^$longFormat$/", $dt, $match)) {
+            $year   = intval($match[1]);
+            $month  = intval($match[2]);
+            $day    = intval($match[3]);
+            if (PHPRPC_Date::isValidDate($year, $month, $day)) {
+                $date = new PHPRPC_Date(false);
+                $date->year  = $year;
+                $date->month = $month;
+                $date->day   = $day;
+                $date->hour   = intval($match[4]);
+                $date->minute = intval($match[5]);
+                $date->second = intval($match[6]);
+                return $date;
+            }
+            else {
+                return false;
+            }
+        }
+        $fullFormat = $longFormat . '\.(\d|\d{2}|\d{3})';
+        if (preg_match("/^$fullFormat$/", $dt, $match)) {
+            $year   = intval($match[1]);
+            $month  = intval($match[2]);
+            $day    = intval($match[3]);
+            if (PHPRPC_Date::isValidDate($year, $month, $day)) {
+                $date = new PHPRPC_Date(false);
+                $date->year  = $year;
+                $date->month = $month;
+                $date->day   = $day;
+                $date->hour        = intval($match[4]);
+                $date->minute      = intval($match[5]);
+                $date->second      = intval($match[6]);
+                $date->millisecond = intval($match[7]);
+                return $date;
+            }
+            else {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    function isValidDate($year, $month, $day) {
+        if (($year >= 1) && ($year <= 9999)) {
+            return checkdate($month, $day, $year);
+        }
+        return false;
+    }
+
     function before($when) {
         if (!is_a($when, 'PHPRPC_Date')) {
             $when = new PHPRPC_Date($when);
@@ -360,9 +432,25 @@ class PHPRPC_Date {
         return false;
     }
 
+// magic method for PHP 5
+
+    function isValidTime($hour, $minute, $second) {
+        return !(($hour < 0) || ($hour > 23) ||
+            ($minute < 0) || ($minute > 59) ||
+            ($second < 0) || ($second > 59));
+    }
+
+// public instance & static methods
+
     function time() {
         return mktime($this->hour, $this->minute, $this->second, $this->month, $this->day, $this->year);
     }
+
+    function __toString() {
+        return $this->toString();
+    }
+
+// public static methods
 
     function toString() {
         return sprintf('%04d-%02d-%02d %02d:%02d:%02d.%03d',
@@ -370,14 +458,6 @@ class PHPRPC_Date {
             $this->hour, $this->minute, $this->second,
             $this->millisecond);
     }
-
-// magic method for PHP 5
-
-    function __toString() {
-        return $this->toString();
-    }
-
-// public instance & static methods
 
     function dayOfWeek() {
         $num = func_num_args();
@@ -415,11 +495,8 @@ class PHPRPC_Date {
         return $days[$m - 1] + $d;
     }
 
-// public static methods
-
-    function now() {
-        $date = new PHPRPC_Date();
-        return $date;
+    function isLeapYear($year) {
+        return (($year % 4) == 0) ? (($year % 100) == 0) ? (($year % 400) == 0) : true : false;
     }
 
     function today() {
@@ -430,73 +507,9 @@ class PHPRPC_Date {
         return $date;
     }
 
-    function parse($dt) {
-        if (is_a($dt, 'PHPRPC_Date')) {
-            return $dt;
-        }
-        if (is_int($dt)) {
-            return new PHPRPC_Date($dt);
-        }
-        $shortFormat = '(\d|\d{2}|\d{3}|\d{4})-([1-9]|0[1-9]|1[012])-([1-9]|0[1-9]|[12]\d|3[01])';
-        if (preg_match("/^$shortFormat$/", $dt, $match)) {
-            $year   = intval($match[1]);
-            $month  = intval($match[2]);
-            $day    = intval($match[3]);
-            if (PHPRPC_Date::isValidDate($year, $month, $day)) {
-                $date = new PHPRPC_Date(false);
-                $date->year  = $year;
-                $date->month = $month;
-                $date->day   = $day;
-                return $date;
-            }
-            else {
-                return false;
-            }
-        }
-        $longFormat = $shortFormat . ' (\d|0\d|1\d|2[0-3]):(\d|[0-5]\d):(\d|[0-5]\d)';
-        if (preg_match("/^$longFormat$/", $dt, $match)) {
-            $year   = intval($match[1]);
-            $month  = intval($match[2]);
-            $day    = intval($match[3]);
-            if (PHPRPC_Date::isValidDate($year, $month, $day)) {
-                $date = new PHPRPC_Date(false);
-                $date->year  = $year;
-                $date->month = $month;
-                $date->day   = $day;
-                $date->hour   = intval($match[4]);
-                $date->minute = intval($match[5]);
-                $date->second = intval($match[6]);
-                return $date;
-            }
-            else {
-                return false;
-            }
-        }
-        $fullFormat = $longFormat . '\.(\d|\d{2}|\d{3})';
-        if (preg_match("/^$fullFormat$/", $dt, $match)) {
-            $year   = intval($match[1]);
-            $month  = intval($match[2]);
-            $day    = intval($match[3]);
-            if (PHPRPC_Date::isValidDate($year, $month, $day)) {
-                $date = new PHPRPC_Date(false);
-                $date->year  = $year;
-                $date->month = $month;
-                $date->day   = $day;
-                $date->hour        = intval($match[4]);
-                $date->minute      = intval($match[5]);
-                $date->second      = intval($match[6]);
-                $date->millisecond = intval($match[7]);
-                return $date;
-            }
-            else {
-                return false;
-            }
-        }
-        return false;
-    }
-
-    function isLeapYear($year) {
-        return (($year % 4) == 0) ? (($year % 100) == 0) ? (($year % 400) == 0) : true : false;
+    function now() {
+        $date = new PHPRPC_Date();
+        return $date;
     }
 
     function daysInMonth($year, $month) {
@@ -504,19 +517,6 @@ class PHPRPC_Date {
             return false;
         }
         return cal_days_in_month(CAL_GREGORIAN, $month, $year);
-    }
-
-    function isValidDate($year, $month, $day) {
-        if (($year >= 1) && ($year <= 9999)) {
-            return checkdate($month, $day, $year);
-        }
-        return false;
-    }
-
-    function isValidTime($hour, $minute, $second) {
-        return !(($hour < 0) || ($hour > 23) ||
-            ($minute < 0) || ($minute > 59) ||
-            ($second < 0) || ($second > 59));
     }
 }
 ?>

@@ -221,6 +221,30 @@ class Template_Lite_Compiler extends Template_Lite {
 		return $compiled_text;
 	}
 
+	function _load_filters()
+	{
+		if (count($this->_plugins['prefilter']) > 0)
+		{
+			foreach ($this->_plugins['prefilter'] as $filter_name => $prefilter)
+			{
+				if (!function_exists($prefilter))
+				{
+					@include_once( $this->_get_plugin_dir("prefilter." . $filter_name . ".php") . "prefilter." . $filter_name . ".php");
+				}
+			}
+		}
+		if (count($this->_plugins['postfilter']) > 0)
+		{
+			foreach ($this->_plugins['postfilter'] as $filter_name => $postfilter)
+			{
+				if (!function_exists($postfilter))
+				{
+					@include_once( $this->_get_plugin_dir("postfilter." . $filter_name . ".php") . "postfilter." . $filter_name . ".php");
+				}
+			}
+		}
+	}
+
 	function _compile_tag($tag)
 	{
 		$_match		= array();		// stores the tags
@@ -241,6 +265,328 @@ class Template_Lite_Compiler extends Template_Lite {
 		$tag_arguments = !empty($_match[3][0]) ? $_match[3][0] : null;
 		$_result = $this->_parse_function($tag_command, $tag_modifiers, $tag_arguments);
 		return $_result;
+	}
+
+	function _parse_variables($variables, $modifiers)
+	{
+		$_result = "";
+		foreach($variables as $key => $value)
+		{
+			$tag_variable = trim($variables[$key]);
+			if(!empty($this->default_modifiers) && !preg_match('!(^|\|)templatelite:nodefaults($|\|)!',$modifiers[$key]))
+			{
+				$_default_mod_string = implode('|',(array)$this->default_modifiers);
+				$modifiers[$key] = empty($modifiers[$key]) ? $_default_mod_string : $_default_mod_string . '|' . $modifiers[$key];
+			}
+			if (empty($modifiers[$key]))
+			{
+				$_result .= $this->_parse_variable($tag_variable).'.';
+			}
+			else
+			{
+				$_result .= $this->_parse_modifier($this->_parse_variable($tag_variable), $modifiers[$key]).'.';
+			}
+		}
+		return substr($_result, 0, -1);
+	}
+
+	function _parse_variable($variable)
+	{
+		// replace variable with value
+		if ($variable{0} == "\$")
+		{
+			// replace the variable
+			return $this->_compile_variable($variable);
+		}
+		elseif ($variable{0} == '#')
+		{
+			// replace the config variable
+			return $this->_compile_config($variable);
+		}
+		elseif ($variable{0} == '"')
+		{
+			// expand the quotes to pull any variables out of it
+			// fortunately variables inside of a quote aren't fancy, no modifiers, no quotes
+			//   just get everything from the $ to the ending space and parse it
+			// if the $ is escaped, then we won't expand it
+			$_result = "";
+			preg_match_all('/(?:[^\\\]' . $this->_dvar_regexp . ')/', substr($variable, 1, -1), $_expand);  // old match
+//			preg_match_all('/(?:[^\\\]' . $this->_dvar_regexp . '[^\\\])/', $variable, $_expand);
+			$_expand = array_unique($_expand[0]);
+			foreach($_expand as $key => $value)
+			{
+				$_expand[$key] = trim($value);
+				if (strpos($_expand[$key], '$') > 0)
+				{
+					$_expand[$key] = substr($_expand[$key], strpos($_expand[$key], '$'));
+				}
+			}
+			$_result = $variable;
+			foreach($_expand as $value)
+			{
+				$value = trim($value);
+				$_result = str_replace($value, '" . ' . $this->_parse_variable($value) . ' . "', $_result);
+			}
+			$_result = str_replace("`", "", $_result);
+			return $_result;
+		}
+		elseif ($variable{0} == "'")
+		{
+			// return the value just as it is
+			return $variable;
+		}
+		elseif ($variable{0} == "%")
+		{
+			return $this->_parse_section_prop($variable);
+		}
+		else
+		{
+			// return it as is; i believe that there was a reason before that i did not just return it as is,
+			// but i forgot what that reason is ...
+			// the reason i return the variable 'as is' right now is so that unquoted literals are allowed
+			return $variable;
+		}
+	}
+
+	function _compile_variable($variable)
+	{
+		$_result	= "";
+
+		// remove the $
+		$variable = substr($variable, 1);
+
+		// get [foo] and .foo and (...) pieces
+		preg_match_all('!(?:^\w+)|(?:' . $this->_var_bracket_regexp . ')|\.\$?\w+|\S+!', $variable, $_match);
+		$variable = $_match[0];
+		$var_name = array_shift($variable);
+
+		if ($var_name == $this->reserved_template_varname)
+		{
+			if ($variable[0]{0} == '[' || $variable[0]{0} == '.')
+			{
+				$find = array("[", "]", ".");
+				switch(strtoupper(str_replace($find, "", $variable[0])))
+				{
+					case 'GET':
+						$_result = "\$_GET";
+						break;
+					case 'POST':
+						$_result = "\$_POST";
+						break;
+					case 'COOKIE':
+						$_result = "\$_COOKIE";
+						break;
+					case 'ENV':
+						$_result = "\$_ENV";
+						break;
+					case 'SERVER':
+						$_result = "\$_SERVER";
+						break;
+					case 'SESSION':
+						$_result = "\$_SESSION";
+						break;
+					case 'NOW':
+						$_result = "time()";
+						break;
+					case 'SECTION':
+						$_result = "\$this->_sections";
+						break;
+					case 'LDELIM':
+						$_result = "\$this->left_delimiter";
+						break;
+					case 'RDELIM':
+						$_result = "\$this->right_delimiter";
+						break;
+					case 'VERSION':
+						$_result = "\$this->_version";
+						break;
+					case 'CONFIG':
+						$_result = "\$this->_confs";
+						break;
+					case 'TEMPLATE':
+						$_result = "\$this->_file";
+						break;
+					case 'CONST':
+						$constant = str_replace($find, "", $_match[0][2]);
+						$_result = "constant('$constant')";
+						$variable = array();
+						break;
+					default:
+						$_var_name = str_replace($find, "", $variable[0]);
+						$_result = "\$this->_templatelite_vars['$_var_name']";
+						break;
+				}
+				array_shift($variable);
+			}
+			else
+			{
+				$this->trigger_error('$' . $var_name.implode('', $variable) . ' is an invalid $templatelite reference', E_USER_ERROR, __FILE__, __LINE__);
+			}
+		}
+		else
+		{
+			$_result = "\$this->_vars['$var_name']";
+		}
+
+		foreach ($variable as $var)
+		{
+			if ($var{0} == '[')
+			{
+				$var = substr($var, 1, -1);
+				if (is_numeric($var))
+				{
+					$_result .= "[$var]";
+				}
+				elseif ($var{0} == '$')
+				{
+					$_result .= "[" . $this->_compile_variable($var) . "]";
+				}
+				elseif ($var{0} == '#')
+				{
+					$_result .= "[" . $this->_compile_config($var) . "]";
+				}
+				else
+				{
+//					$_result .= "['$var']";
+					$parts = explode('.', $var);
+					$section = $parts[0];
+					$section_prop = isset($parts[1]) ? $parts[1] : 'index';
+					$_result .= "[\$this->_sections['$section']['$section_prop']]";
+				}
+			}
+			else if ($var{0} == '.')
+			{
+   				if ($var{1} == '$')
+				{
+	   				$_result .= "[\$this->_TPL['" . substr($var, 2) . "']]";
+				}
+		   		else
+				{
+			   		$_result .= "['" . substr($var, 1) . "']";
+				}
+			}
+			else if (substr($var,0,2) == '->')
+			{
+				if(substr($var,2,2) == '__')
+				{
+					$this->trigger_error('call to internal object members is not allowed', E_USER_ERROR, __FILE__, __LINE__);
+				}
+				else if (substr($var, 2, 1) == '$')
+				{
+					$_output .= '->{(($var=$this->_TPL[\''.substr($var,3).'\']) && substr($var,0,2)!=\'__\') ? $_var : $this->trigger_error("cannot access property \\"$var\\"")}';
+				}
+			}
+			else
+			{
+				$this->trigger_error('$' . $var_name.implode('', $variable) . ' is an invalid reference', E_USER_ERROR, __FILE__, __LINE__);
+			}
+		}
+		return $_result;
+	}
+
+	function _compile_config($variable)
+	{
+		if (!function_exists('compile_compile_config'))
+		{
+			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_config.php");
+		}
+		return compile_compile_config($variable, $this);
+	}
+
+	function _parse_section_prop($section_prop_expr)
+	{
+		$parts = explode('|', $section_prop_expr, 2);
+		$var_ref = $parts[0];
+		$modifiers = isset($parts[1]) ? $parts[1] : '';
+
+		preg_match('!%(\w+)\.(\w+)%!', $var_ref, $match);
+		$section_name = $match[1];
+		$prop_name = $match[2];
+
+		$output = "\$this->_sections['$section_name']['$prop_name']";
+
+		$this->_parse_modifier($output, $modifiers);
+
+		return $output;
+	}
+
+	function _parse_modifier($variable, $modifiers)
+	{
+		$_match		= array();
+		$_mods		= array();		// stores all modifiers
+		$_args		= array();		// modifier arguments
+
+		preg_match_all('!\|(@?\w+)((?>:(?:'. $this->_qstr_regexp . '|[^|]+))*)!', '|' . $modifiers, $_match);
+		list(, $_mods, $_args) = $_match;
+
+		$count_mods = count($_mods);
+		for ($i = 0, $for_max = $count_mods; $i < $for_max; $i++)
+		{
+			preg_match_all('!:(' . $this->_qstr_regexp . '|[^:]+)!', $_args[$i], $_match);
+			$_arg = $_match[1];
+
+			if ($_mods[$i]{0} == '@')
+			{
+				$_mods[$i] = substr($_mods[$i], 1);
+				$_map_array = 0;
+			} else {
+				$_map_array = 1;
+			}
+
+			foreach($_arg as $key => $value)
+			{
+				$_arg[$key] = $this->_parse_variable($value);
+			}
+
+			if ($this->_plugin_exists($_mods[$i], "modifier") || function_exists($_mods[$i]))
+			{
+				if (count($_arg) > 0)
+				{
+					$_arg = ', '.implode(', ', $_arg);
+				}
+				else
+				{
+					$_arg = '';
+				}
+
+				$php_function = "PHP";
+				if ($this->_plugin_exists($_mods[$i], "modifier"))
+				{
+					$php_function = "plugin";
+				}
+				$variable = "\$this->_run_modifier($variable, '$_mods[$i]', '$php_function', $_map_array$_arg)";
+			}
+			else
+			{
+				$variable = "\$this->trigger_error(\"'" . $_mods[$i] . "' modifier does not exist\", E_USER_NOTICE, __FILE__, __LINE__);";
+			}
+		}
+		return $variable;
+	}
+
+	function _plugin_exists($function, $type)
+	{
+		// check for object functions
+		if (isset($this->_plugins[$type][$function]) && is_array($this->_plugins[$type][$function]) && is_object($this->_plugins[$type][$function][0]) && method_exists($this->_plugins[$type][$function][0], $this->_plugins[$type][$function][1]))
+		{
+			return '$this->_plugins[\'' . $type . '\'][\'' . $function . '\'][0]->' . $this->_plugins[$type][$function][1];
+		}
+		// check for standard functions
+		if (isset($this->_plugins[$type][$function]) && function_exists($this->_plugins[$type][$function]))
+		{
+			return $this->_plugins[$type][$function];
+		}
+		// check for a plugin in the plugin directory
+		if (file_exists($this->_get_plugin_dir($type . '.' . $function . '.php') . $type . '.' . $function . '.php'))
+		{
+			require_once($this->_get_plugin_dir($type . '.' . $function . '.php') . $type . '.' . $function . '.php');
+			if (function_exists('tpl_' . $type . '_' . $function))
+			{
+				$this->_require_stack[$type . '.' . $function . '.php'] = array($type, $function, 'tpl_' . $type . '_' . $function);
+				return ('tpl_' . $type . '_' . $function);
+			}
+		}
+		return false;
 	}
 
 	function _parse_function($function, $modifiers, $arguments)
@@ -488,77 +834,6 @@ class Template_Lite_Compiler extends Template_Lite {
 		}
 	}
 
-	function _compile_compiler_function($function, $arguments, &$_result)
-	{
-		if ($function = $this->_plugin_exists($function, "compiler"))
-		{
-			$_args = $this->_parse_arguments($arguments);
-			$_result = '<?php ' . $function($_args, $this) . ' ?>';
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	function _compile_custom_function($function, $modifiers, $arguments, &$_result)
-	{
-		if (!function_exists('compile_compile_custom_function'))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_custom_function.php");
-		}
-		return compile_compile_custom_function($function, $modifiers, $arguments, $_result, $this);
-	}
-
-	function _compile_custom_block($function, $modifiers, $arguments, &$_result)
-	{
-		if (!function_exists('compile_compile_custom_block'))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_custom_block.php");
-		}
-		return compile_compile_custom_block($function, $modifiers, $arguments, $_result, $this);
-	}
-
-	function _compile_if($arguments, $elseif = false, $while = false)
-	{
-		if (!function_exists('compile_compile_if'))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_if.php");
-		}
-		return compile_compile_if($arguments, $elseif, $while, $this);
-	}
-
-	function _parse_is_expr($is_arg, $_arg)
-	{
-		if (!function_exists('compile_parse_is_expr'))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/compile.parse_is_expr.php");
-		}
-		return compile_parse_is_expr($is_arg, $_arg, $this);
-	}
-
-	function _compile_config($variable)
-	{
-		if (!function_exists('compile_compile_config'))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_config.php");
-		}
-		return compile_compile_config($variable, $this);
-	}
-
-	function _dequote($string)
-	{
-		if (($string{0} == "'" || $string{0} == '"') && $string{strlen($string)-1} == $string{0})
-		{
-			return substr($string, 1, -1);
-		}
-		else
-		{
-			return $string;
-		}
-	}
-
 	function _parse_arguments($arguments)
 	{
 		$_match		= array();
@@ -645,341 +920,66 @@ class Template_Lite_Compiler extends Template_Lite {
 		return $_result;
 	}
 
-	function _parse_variables($variables, $modifiers)
+	function _dequote($string)
 	{
-		$_result = "";
-		foreach($variables as $key => $value)
+		if (($string{0} == "'" || $string{0} == '"') && $string{strlen($string)-1} == $string{0})
 		{
-			$tag_variable = trim($variables[$key]);
-			if(!empty($this->default_modifiers) && !preg_match('!(^|\|)templatelite:nodefaults($|\|)!',$modifiers[$key]))
-			{
-				$_default_mod_string = implode('|',(array)$this->default_modifiers);
-				$modifiers[$key] = empty($modifiers[$key]) ? $_default_mod_string : $_default_mod_string . '|' . $modifiers[$key];
-			}
-			if (empty($modifiers[$key]))
-			{
-				$_result .= $this->_parse_variable($tag_variable).'.';
-			}
-			else
-			{
-				$_result .= $this->_parse_modifier($this->_parse_variable($tag_variable), $modifiers[$key]).'.';
-			}
-		}
-		return substr($_result, 0, -1);
-	}
-
-	function _parse_variable($variable)
-	{
-		// replace variable with value
-		if ($variable{0} == "\$")
-		{
-			// replace the variable
-			return $this->_compile_variable($variable);
-		}
-		elseif ($variable{0} == '#')
-		{
-			// replace the config variable
-			return $this->_compile_config($variable);
-		}
-		elseif ($variable{0} == '"')
-		{
-			// expand the quotes to pull any variables out of it
-			// fortunately variables inside of a quote aren't fancy, no modifiers, no quotes
-			//   just get everything from the $ to the ending space and parse it
-			// if the $ is escaped, then we won't expand it
-			$_result = "";
-			preg_match_all('/(?:[^\\\]' . $this->_dvar_regexp . ')/', substr($variable, 1, -1), $_expand);  // old match 
-//			preg_match_all('/(?:[^\\\]' . $this->_dvar_regexp . '[^\\\])/', $variable, $_expand);
-			$_expand = array_unique($_expand[0]);
-			foreach($_expand as $key => $value)
-			{
-				$_expand[$key] = trim($value);
-				if (strpos($_expand[$key], '$') > 0)
-				{
-					$_expand[$key] = substr($_expand[$key], strpos($_expand[$key], '$'));
-				}
-			}
-			$_result = $variable;
-			foreach($_expand as $value)
-			{
-				$value = trim($value);
-				$_result = str_replace($value, '" . ' . $this->_parse_variable($value) . ' . "', $_result);
-			}
-			$_result = str_replace("`", "", $_result);
-			return $_result;
-		}
-		elseif ($variable{0} == "'")
-		{
-			// return the value just as it is
-			return $variable;
-		}
-		elseif ($variable{0} == "%")
-		{
-			return $this->_parse_section_prop($variable);
+			return substr($string, 1, -1);
 		}
 		else
 		{
-			// return it as is; i believe that there was a reason before that i did not just return it as is,
-			// but i forgot what that reason is ...
-			// the reason i return the variable 'as is' right now is so that unquoted literals are allowed
-			return $variable;
+			return $string;
 		}
 	}
 
-	function _parse_section_prop($section_prop_expr)
+	function _compile_if($arguments, $elseif = false, $while = false)
 	{
-		$parts = explode('|', $section_prop_expr, 2);
-		$var_ref = $parts[0];
-		$modifiers = isset($parts[1]) ? $parts[1] : '';
-
-		preg_match('!%(\w+)\.(\w+)%!', $var_ref, $match);
-		$section_name = $match[1];
-		$prop_name = $match[2];
-
-		$output = "\$this->_sections['$section_name']['$prop_name']";
-
-		$this->_parse_modifier($output, $modifiers);
-
-		return $output;
+		if (!function_exists('compile_compile_if'))
+		{
+			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_if.php");
+		}
+		return compile_compile_if($arguments, $elseif, $while, $this);
 	}
 
-	function _compile_variable($variable)
+	function _compile_compiler_function($function, $arguments, &$_result)
 	{
-		$_result	= "";
-
-		// remove the $
-		$variable = substr($variable, 1);
-
-		// get [foo] and .foo and (...) pieces
-		preg_match_all('!(?:^\w+)|(?:' . $this->_var_bracket_regexp . ')|\.\$?\w+|\S+!', $variable, $_match);
-		$variable = $_match[0];
-		$var_name = array_shift($variable);
-
-		if ($var_name == $this->reserved_template_varname)
+		if ($function = $this->_plugin_exists($function, "compiler"))
 		{
-			if ($variable[0]{0} == '[' || $variable[0]{0} == '.')
-			{
-				$find = array("[", "]", ".");
-				switch(strtoupper(str_replace($find, "", $variable[0])))
-				{
-					case 'GET':
-						$_result = "\$_GET";
-						break;
-					case 'POST':
-						$_result = "\$_POST";
-						break;
-					case 'COOKIE':
-						$_result = "\$_COOKIE";
-						break;
-					case 'ENV':
-						$_result = "\$_ENV";
-						break;
-					case 'SERVER':
-						$_result = "\$_SERVER";
-						break;
-					case 'SESSION':
-						$_result = "\$_SESSION";
-						break;
-					case 'NOW':
-						$_result = "time()";
-						break;
-					case 'SECTION':
-						$_result = "\$this->_sections";
-						break;
-					case 'LDELIM':
-						$_result = "\$this->left_delimiter";
-						break;
-					case 'RDELIM':
-						$_result = "\$this->right_delimiter";
-						break;
-					case 'VERSION':
-						$_result = "\$this->_version";
-						break;
-					case 'CONFIG':
-						$_result = "\$this->_confs";
-						break;
-					case 'TEMPLATE':
-						$_result = "\$this->_file";
-						break;
-					case 'CONST':
-						$constant = str_replace($find, "", $_match[0][2]);
-						$_result = "constant('$constant')";
-						$variable = array();
-						break;
-					default:
-						$_var_name = str_replace($find, "", $variable[0]);
-						$_result = "\$this->_templatelite_vars['$_var_name']";
-						break;
-				}
-				array_shift($variable);
-			}
-			else
-			{
-				$this->trigger_error('$' . $var_name.implode('', $variable) . ' is an invalid $templatelite reference', E_USER_ERROR, __FILE__, __LINE__);
-			}
+			$_args = $this->_parse_arguments($arguments);
+			$_result = '<?php ' . $function($_args, $this) . ' ?>';
+			return true;
 		}
 		else
 		{
-			$_result = "\$this->_vars['$var_name']";
+			return false;
 		}
-
-		foreach ($variable as $var)
-		{
-			if ($var{0} == '[')
-			{
-				$var = substr($var, 1, -1);
-				if (is_numeric($var))
-				{
-					$_result .= "[$var]";
-				}
-				elseif ($var{0} == '$')
-				{
-					$_result .= "[" . $this->_compile_variable($var) . "]";
-				}
-				elseif ($var{0} == '#')
-				{
-					$_result .= "[" . $this->_compile_config($var) . "]";
-				}
-				else
-				{
-//					$_result .= "['$var']";
-					$parts = explode('.', $var);
-					$section = $parts[0];
-					$section_prop = isset($parts[1]) ? $parts[1] : 'index';
-					$_result .= "[\$this->_sections['$section']['$section_prop']]";
-				}
-			}
-			else if ($var{0} == '.')
-			{
-   				if ($var{1} == '$')
-				{
-	   				$_result .= "[\$this->_TPL['" . substr($var, 2) . "']]";
-				}
-		   		else
-				{
-			   		$_result .= "['" . substr($var, 1) . "']";
-				}
-			}
-			else if (substr($var,0,2) == '->')
-			{
-				if(substr($var,2,2) == '__')
-				{
-					$this->trigger_error('call to internal object members is not allowed', E_USER_ERROR, __FILE__, __LINE__);
-				}
-				else if (substr($var, 2, 1) == '$')
-				{
-					$_output .= '->{(($var=$this->_TPL[\''.substr($var,3).'\']) && substr($var,0,2)!=\'__\') ? $_var : $this->trigger_error("cannot access property \\"$var\\"")}';
-				}
-			}
-			else
-			{
-				$this->trigger_error('$' . $var_name.implode('', $variable) . ' is an invalid reference', E_USER_ERROR, __FILE__, __LINE__);
-			}
-		}
-		return $_result;
 	}
 
-	function _parse_modifier($variable, $modifiers)
+	function _compile_custom_block($function, $modifiers, $arguments, &$_result)
 	{
-		$_match		= array();
-		$_mods		= array();		// stores all modifiers
-		$_args		= array();		// modifier arguments
-
-		preg_match_all('!\|(@?\w+)((?>:(?:'. $this->_qstr_regexp . '|[^|]+))*)!', '|' . $modifiers, $_match);
-		list(, $_mods, $_args) = $_match;
-
-		$count_mods = count($_mods);
-		for ($i = 0, $for_max = $count_mods; $i < $for_max; $i++)
+		if (!function_exists('compile_compile_custom_block'))
 		{
-			preg_match_all('!:(' . $this->_qstr_regexp . '|[^:]+)!', $_args[$i], $_match);
-			$_arg = $_match[1];
-
-			if ($_mods[$i]{0} == '@')
-			{
-				$_mods[$i] = substr($_mods[$i], 1);
-				$_map_array = 0;
-			} else {
-				$_map_array = 1;
-			}
-
-			foreach($_arg as $key => $value)
-			{
-				$_arg[$key] = $this->_parse_variable($value);
-			}
-
-			if ($this->_plugin_exists($_mods[$i], "modifier") || function_exists($_mods[$i]))
-			{
-				if (count($_arg) > 0)
-				{
-					$_arg = ', '.implode(', ', $_arg);
-				}
-				else
-				{
-					$_arg = '';
-				}
-
-				$php_function = "PHP";
-				if ($this->_plugin_exists($_mods[$i], "modifier"))
-				{
-					$php_function = "plugin";
-				}
-				$variable = "\$this->_run_modifier($variable, '$_mods[$i]', '$php_function', $_map_array$_arg)";
-			}
-			else
-			{
-				$variable = "\$this->trigger_error(\"'" . $_mods[$i] . "' modifier does not exist\", E_USER_NOTICE, __FILE__, __LINE__);";
-			}
+			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_custom_block.php");
 		}
-		return $variable;
+		return compile_compile_custom_block($function, $modifiers, $arguments, $_result, $this);
 	}
 
-	function _plugin_exists($function, $type)
+	function _compile_custom_function($function, $modifiers, $arguments, &$_result)
 	{
-		// check for object functions
-		if (isset($this->_plugins[$type][$function]) && is_array($this->_plugins[$type][$function]) && is_object($this->_plugins[$type][$function][0]) && method_exists($this->_plugins[$type][$function][0], $this->_plugins[$type][$function][1]))
+		if (!function_exists('compile_compile_custom_function'))
 		{
-			return '$this->_plugins[\'' . $type . '\'][\'' . $function . '\'][0]->' . $this->_plugins[$type][$function][1];
+			require_once(TEMPLATE_LITE_DIR . "internal/compile.compile_custom_function.php");
 		}
-		// check for standard functions
-		if (isset($this->_plugins[$type][$function]) && function_exists($this->_plugins[$type][$function]))
-		{
-			return $this->_plugins[$type][$function];
-		}
-		// check for a plugin in the plugin directory
-		if (file_exists($this->_get_plugin_dir($type . '.' . $function . '.php') . $type . '.' . $function . '.php'))
-		{
-			require_once($this->_get_plugin_dir($type . '.' . $function . '.php') . $type . '.' . $function . '.php');
-			if (function_exists('tpl_' . $type . '_' . $function))
-			{
-				$this->_require_stack[$type . '.' . $function . '.php'] = array($type, $function, 'tpl_' . $type . '_' . $function);
-				return ('tpl_' . $type . '_' . $function);
-			}
-		}
-		return false;
+		return compile_compile_custom_function($function, $modifiers, $arguments, $_result, $this);
 	}
 
-	function _load_filters()
+	function _parse_is_expr($is_arg, $_arg)
 	{
-		if (count($this->_plugins['prefilter']) > 0)
+		if (!function_exists('compile_parse_is_expr'))
 		{
-			foreach ($this->_plugins['prefilter'] as $filter_name => $prefilter)
-			{
-				if (!function_exists($prefilter))
-				{
-					@include_once( $this->_get_plugin_dir("prefilter." . $filter_name . ".php") . "prefilter." . $filter_name . ".php");
-				}
-			}
+			require_once(TEMPLATE_LITE_DIR . "internal/compile.parse_is_expr.php");
 		}
-		if (count($this->_plugins['postfilter']) > 0)
-		{
-			foreach ($this->_plugins['postfilter'] as $filter_name => $postfilter)
-			{
-				if (!function_exists($postfilter))
-				{
-					@include_once( $this->_get_plugin_dir("postfilter." . $filter_name . ".php") . "postfilter." . $filter_name . ".php");
-				}
-			}
-		}
+		return compile_parse_is_expr($is_arg, $_arg, $this);
 	}
 }
 

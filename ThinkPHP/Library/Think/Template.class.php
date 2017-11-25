@@ -17,12 +17,12 @@ namespace Think;
 class  Template {
 
     // 模板页面中引入的标签库列表
-    protected   $tagLib          =   array();
-    // 当前模板文件
-    protected   $templateFile    =   '';
-    // 模板变量
     public      $tVar            =   array();
+    // 当前模板文件
     public      $config          =   array();
+    // 模板变量
+    protected   $tagLib          =   array();
+    protected   $templateFile    =   '';
     private     $literal         =   array();
     private     $block           =   array();
 
@@ -52,12 +52,6 @@ class  Template {
     }
 
     // 模板变量获取和设置
-    public function get($name) {
-        if(isset($this->tVar[$name]))
-            return $this->tVar[$name];
-        else
-            return false;
-    }
 
     public function set($name,$value) {
         $this->tVar[$name]= $value;
@@ -185,42 +179,6 @@ class  Template {
         return $content;
     }
 
-    // 检查PHP语法
-    protected function parsePhp($content) {
-        if(ini_get('short_open_tag')){
-            // 开启短标签的情况要将<?标签用echo方式输出 否则无法正常输出xml标识
-            $content = preg_replace('/(<\?(?!php|=|$))/i', '<?php echo \'\\1\'; ?>'."\n", $content );
-        }
-        // PHP语法检查
-        if(C('TMPL_DENY_PHP') && false !== strpos($content,'<?php')) {
-            E(L('_NOT_ALLOW_PHP_'));
-        }
-        return $content;
-    }
-
-    // 解析模板中的布局标签
-    protected function parseLayout($content) {
-        // 读取模板中的布局标签
-        $find = preg_match('/'.$this->config['taglib_begin'].'layout\s(.+?)\s*?\/'.$this->config['taglib_end'].'/is',$content,$matches);
-        if($find) {
-            //替换Layout标签
-            $content    =   str_replace($matches[0],'',$content);
-            //解析Layout标签
-            $array      =   $this->parseXmlAttrs($matches[1]);
-            if(!C('LAYOUT_ON') || C('LAYOUT_NAME') !=$array['name'] ) {
-                // 读取布局模板
-                $layoutFile =   THEME_PATH.$array['name'].$this->config['template_suffix'];
-                $replace    =   isset($array['replace'])?$array['replace']:$this->config['layout_item'];
-                // 替换布局的主体内容
-                $content    =   str_replace($replace,$content,file_get_contents($layoutFile));
-            }
-        }else{
-            $content = str_replace('{__NOLAYOUT__}','',$content);
-        }
-        return $content;
-    }
-
-    // 解析模板中的include标签
     protected function parseInclude($content, $extend = true) {
         // 解析继承
         if($extend)
@@ -241,10 +199,11 @@ class  Template {
         return $content;
     }
 
-    // 解析模板中的extend标签
+    // 检查PHP语法
+
     protected function parseExtend($content) {
         $begin      =   $this->config['taglib_begin'];
-        $end        =   $this->config['taglib_end'];        
+        $end        =   $this->config['taglib_end'];
         // 读取模板中的继承标签
         $find       =   preg_match('/'.$begin.'extend\s(.+?)\s*?\/'.$end.'/is',$content,$matches);
         if($find) {
@@ -264,6 +223,8 @@ class  Template {
         return $content;
     }
 
+    // 解析模板中的布局标签
+
     /**
      * 分析XML属性
      * @access private
@@ -280,51 +241,39 @@ class  Template {
         return $array;
     }
 
-    /**
-     * 替换页面中的literal标签
-     * @access private
-     * @param string $content  模板内容
-     * @return string|false
-     */
-    private function parseLiteral($content) {
-        if(is_array($content)) $content = $content[1];
-        if(trim($content)=='')  return '';
-        //$content            =   stripslashes($content);
-        $i                  =   count($this->literal);
-        $parseStr           =   "<!--###literal{$i}###-->";
-        $this->literal[$i]  =   $content;
-        return $parseStr;
-    }
+    // 解析模板中的include标签
 
     /**
-     * 还原被替换的literal标签
+     * 分析加载的模板文件并读取内容 支持多个模板文件读取
      * @access private
-     * @param string $tag  literal标签序号
-     * @return string|false
-     */
-    private function restoreLiteral($tag) {
-        if(is_array($tag)) $tag = $tag[1];
-        // 还原literal标签
-        $parseStr   =  $this->literal[$tag];
-        // 销毁literal记录
-        unset($this->literal[$tag]);
-        return $parseStr;
-    }
-
-    /**
-     * 记录当前页面中的block标签
-     * @access private
-     * @param string $name block名称
-     * @param string $content  模板内容
+     * @param string $tmplPublicName  模板文件名
      * @return string
      */
-    private function parseBlock($name,$content = '') {
-        if(is_array($name)){
-            $content = $name[2];
-            $name    = $name[1];
+    private function parseTemplateName($templateName){
+        if(substr($templateName,0,1)=='$')
+            //支持加载变量文件名
+            $templateName = $this->get(substr($templateName,1));
+        $array  =   explode(',',$templateName);
+        $parseStr   =   '';
+        foreach ($array as $templateName){
+            if(empty($templateName)) continue;
+            if(false === strpos($templateName,$this->config['template_suffix'])) {
+                // 解析规则为 模块@主题/控制器/操作
+                $templateName   =   T($templateName);
+            }
+            // 获取模板文件内容
+            $parseStr .= file_get_contents($templateName);
         }
-        $this->block[$name]  =   $content;
-        return '';
+        return $parseStr;
+    }
+
+    // 解析模板中的extend标签
+
+    public function get($name) {
+        if(isset($this->tVar[$name]))
+            return $this->tVar[$name];
+        else
+            return false;
     }
 
     /**
@@ -355,6 +304,57 @@ class  Template {
                 return $content;
             }
         }
+    }
+
+    protected function parseLayout($content) {
+        // 读取模板中的布局标签
+        $find = preg_match('/'.$this->config['taglib_begin'].'layout\s(.+?)\s*?\/'.$this->config['taglib_end'].'/is',$content,$matches);
+        if($find) {
+            //替换Layout标签
+            $content    =   str_replace($matches[0],'',$content);
+            //解析Layout标签
+            $array      =   $this->parseXmlAttrs($matches[1]);
+            if(!C('LAYOUT_ON') || C('LAYOUT_NAME') !=$array['name'] ) {
+                // 读取布局模板
+                $layoutFile =   THEME_PATH.$array['name'].$this->config['template_suffix'];
+                $replace    =   isset($array['replace'])?$array['replace']:$this->config['layout_item'];
+                // 替换布局的主体内容
+                $content    =   str_replace($replace,$content,file_get_contents($layoutFile));
+            }
+        }else{
+            $content = str_replace('{__NOLAYOUT__}','',$content);
+        }
+        return $content;
+    }
+
+    /**
+     * 加载公共模板并缓存 和当前模板在同一路径，否则使用相对路径
+     * @access private
+     * @param string $tmplPublicName  公共模板文件名
+     * @param array $vars  要传递的变量列表
+     * @return string
+     */
+    private function parseIncludeItem($tmplPublicName,$vars=array(),$extend){
+        // 分析模板文件名并读取内容
+        $parseStr = $this->parseTemplateName($tmplPublicName);
+        // 替换变量
+        foreach ($vars as $key=>$val) {
+            $parseStr = str_replace('['.$key.']',$val,$parseStr);
+        }
+        // 再次对包含文件进行模板分析
+        return $this->parseInclude($parseStr,$extend);
+    }
+
+    protected function parsePhp($content) {
+        if(ini_get('short_open_tag')){
+            // 开启短标签的情况要将<?标签用echo方式输出 否则无法正常输出xml标识
+            $content = preg_replace('/(<\?(?!php|=|$))/i', '<?php echo \'\\1\'; ?>'."\n", $content );
+        }
+        // PHP语法检查
+        if(C('TMPL_DENY_PHP') && false !== strpos($content,'<?php')) {
+            E(L('_NOT_ALLOW_PHP_'));
+        }
+        return $content;
     }
 
     /**
@@ -393,7 +393,7 @@ class  Template {
             $className  =   $tagLib;
             $tagLib     =   substr($tagLib,strrpos($tagLib,'\\')+1);
         }else{
-            $className  =   'Think\\Template\TagLib\\'.ucwords($tagLib);            
+            $className  =   'Think\\Template\TagLib\\'.ucwords($tagLib);
         }
         $tLib       =   \Think\Think::instance($className);
         $that       =   $this;
@@ -544,45 +544,6 @@ class  Template {
     }
 
     /**
-     * 对模板变量使用函数
-     * 格式 {$varname|function1|function2=arg1,arg2}
-     * @access public
-     * @param string $name 变量名
-     * @param array $varArray  函数列表
-     * @return string
-     */
-    public function parseVarFunction($name,$varArray){
-        //对变量使用函数
-        $length = count($varArray);
-        //取得模板禁止使用函数列表
-        $template_deny_funs = explode(',',C('TMPL_DENY_FUNC_LIST'));
-        for($i=0;$i<$length ;$i++ ){
-            $args = explode('=',$varArray[$i],2);
-            //模板函数过滤
-            $fun = trim($args[0]);
-            switch($fun) {
-            case 'default':  // 特殊模板函数
-                $name = '(isset('.$name.') && ('.$name.' !== ""))?('.$name.'):'.$args[1];
-                break;
-            default:  // 通用模板函数
-                if(!in_array($fun,$template_deny_funs)){
-                    if(isset($args[1])){
-                        if(strstr($args[1],'###')){
-                            $args[1] = str_replace('###',$name,$args[1]);
-                            $name = "$fun($args[1])";
-                        }else{
-                            $name = "$fun($name,$args[1])";
-                        }
-                    }else if(!empty($args[0])){
-                        $name = "$fun($name)";
-                    }
-                }
-            }
-        }
-        return $name;
-    }
-
-    /**
      * 特殊模板变量解析
      * 格式 以 $Think. 打头的变量属于特殊模板变量
      * @access public
@@ -657,44 +618,88 @@ class  Template {
     }
 
     /**
-     * 加载公共模板并缓存 和当前模板在同一路径，否则使用相对路径
-     * @access private
-     * @param string $tmplPublicName  公共模板文件名
-     * @param array $vars  要传递的变量列表
+     * 对模板变量使用函数
+     * 格式 {$varname|function1|function2=arg1,arg2}
+     * @access public
+     * @param string $name 变量名
+     * @param array $varArray  函数列表
      * @return string
      */
-    private function parseIncludeItem($tmplPublicName,$vars=array(),$extend){
-        // 分析模板文件名并读取内容
-        $parseStr = $this->parseTemplateName($tmplPublicName);
-        // 替换变量
-        foreach ($vars as $key=>$val) {
-            $parseStr = str_replace('['.$key.']',$val,$parseStr);
+    public function parseVarFunction($name,$varArray){
+        //对变量使用函数
+        $length = count($varArray);
+        //取得模板禁止使用函数列表
+        $template_deny_funs = explode(',',C('TMPL_DENY_FUNC_LIST'));
+        for($i=0;$i<$length ;$i++ ){
+            $args = explode('=',$varArray[$i],2);
+            //模板函数过滤
+            $fun = trim($args[0]);
+            switch($fun) {
+            case 'default':  // 特殊模板函数
+                $name = '(isset('.$name.') && ('.$name.' !== ""))?('.$name.'):'.$args[1];
+                break;
+            default:  // 通用模板函数
+                if(!in_array($fun,$template_deny_funs)){
+                    if(isset($args[1])){
+                        if(strstr($args[1],'###')){
+                            $args[1] = str_replace('###',$name,$args[1]);
+                            $name = "$fun($args[1])";
+                        }else{
+                            $name = "$fun($name,$args[1])";
+                        }
+                    }else if(!empty($args[0])){
+                        $name = "$fun($name)";
+                    }
+                }
+            }
         }
-        // 再次对包含文件进行模板分析
-        return $this->parseInclude($parseStr,$extend);
+        return $name;
     }
 
     /**
-     * 分析加载的模板文件并读取内容 支持多个模板文件读取
+     * 替换页面中的literal标签
      * @access private
-     * @param string $tmplPublicName  模板文件名
-     * @return string
-     */    
-    private function parseTemplateName($templateName){
-        if(substr($templateName,0,1)=='$')
-            //支持加载变量文件名
-            $templateName = $this->get(substr($templateName,1));
-        $array  =   explode(',',$templateName);
-        $parseStr   =   ''; 
-        foreach ($array as $templateName){
-            if(empty($templateName)) continue;
-            if(false === strpos($templateName,$this->config['template_suffix'])) {
-                // 解析规则为 模块@主题/控制器/操作
-                $templateName   =   T($templateName);
-            }
-            // 获取模板文件内容
-            $parseStr .= file_get_contents($templateName);
-        }
+     * @param string $content  模板内容
+     * @return string|false
+     */
+    private function parseLiteral($content) {
+        if(is_array($content)) $content = $content[1];
+        if(trim($content)=='')  return '';
+        //$content            =   stripslashes($content);
+        $i                  =   count($this->literal);
+        $parseStr           =   "<!--###literal{$i}###-->";
+        $this->literal[$i]  =   $content;
         return $parseStr;
-    }    
+    }
+
+    /**
+     * 还原被替换的literal标签
+     * @access private
+     * @param string $tag  literal标签序号
+     * @return string|false
+     */
+    private function restoreLiteral($tag) {
+        if(is_array($tag)) $tag = $tag[1];
+        // 还原literal标签
+        $parseStr   =  $this->literal[$tag];
+        // 销毁literal记录
+        unset($this->literal[$tag]);
+        return $parseStr;
+    }
+
+    /**
+     * 记录当前页面中的block标签
+     * @access private
+     * @param string $name block名称
+     * @param string $content  模板内容
+     * @return string
+     */
+    private function parseBlock($name,$content = '') {
+        if(is_array($name)){
+            $content = $name[2];
+            $name    = $name[1];
+        }
+        $this->block[$name]  =   $content;
+        return '';
+    }
 }

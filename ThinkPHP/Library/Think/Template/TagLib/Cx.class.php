@@ -237,6 +237,10 @@ class Cx extends TagLib {
         return $parseStr;
     }
 
+    public function _eq($tag,$content) {
+        return $this->_compare($tag,$content,'eq');
+    }
+
     /**
      * compare标签解析
      * 用于值的比较 支持 eq neq gt lt egt elt heq nheq 默认是eq
@@ -263,10 +267,6 @@ class Cx extends TagLib {
         }
         $parseStr   =   '<?php if(('.$name.') '.$type.' '.$value.'): ?>'.$content.'<?php endif; ?>';
         return $parseStr;
-    }
-
-    public function _eq($tag,$content) {
-        return $this->_compare($tag,$content,'eq');
     }
 
     public function _equal($tag,$content) {
@@ -304,6 +304,12 @@ class Cx extends TagLib {
     public function _nheq($tag,$content) {
         return $this->_compare($tag,$content,'nheq');
     }
+
+    public function _in($tag,$content) {
+        return $this->_range($tag,$content,'in');
+    }
+
+    // range标签的别名 用于in判断
 
     /**
      * range标签解析
@@ -345,12 +351,8 @@ class Cx extends TagLib {
         return $parseStr;
     }
 
-    // range标签的别名 用于in判断
-    public function _in($tag,$content) {
-        return $this->_range($tag,$content,'in');
-    }
-
     // range标签的别名 用于notin判断
+
     public function _notin($tag,$content) {
         return $this->_range($tag,$content,'notin');
     }
@@ -437,8 +439,14 @@ class Cx extends TagLib {
         return $parseStr;
     }
 
+    public function _load($tag,$content) {
+        return $this->_import($tag,$content,true);
+    }
+
+    // import别名 采用文件方式加载(要使用命名空间必须用import) 例如 <load file="__PUBLIC__/Js/Base.js" />
+
     /**
-     * import 标签解析 <import file="Js.Base" /> 
+     * import 标签解析 <import file="Js.Base" />
      * <import file="Css.Base" type="css" />
      * @access public
      * @param array $tag 标签属性
@@ -512,12 +520,8 @@ class Cx extends TagLib {
         return $parseStr.$endStr;
     }
 
-    // import别名 采用文件方式加载(要使用命名空间必须用import) 例如 <load file="__PUBLIC__/Js/Base.js" />
-    public function _load($tag,$content) {
-        return $this->_import($tag,$content,true);
-    }
-
     // import别名使用 导入css文件 <css file="__PUBLIC__/Css/Base.css" />
+
     public function _css($tag,$content) {
         return $this->_import($tag,$content,true,'css');
     }

@@ -73,25 +73,6 @@ class View {
     }
 
     /**
-     * 输出内容文本可以包括Html
-     * @access private
-     * @param string $content 输出内容
-     * @param string $charset 模板输出字符集
-     * @param string $contentType 输出类型
-     * @return mixed
-     */
-    private function render($content,$charset='',$contentType=''){
-        if(empty($charset))  $charset = C('DEFAULT_CHARSET');
-        if(empty($contentType)) $contentType = C('TMPL_CONTENT_TYPE');
-        // 网页字符编码
-        header('Content-Type:'.$contentType.'; charset='.$charset);
-        header('Cache-control: '.C('HTTP_CACHE_CONTROL'));  // 页面缓存控制
-        header('X-Powered-By:ThinkPHP');
-        // 输出模板文件
-        echo $content;
-    }
-
-    /**
      * 解析和获取模板内容 用于输出
      * @access public
      * @param string $templateFile 模板文件名
@@ -127,7 +108,7 @@ class View {
                 $tpl = Think::instance('Think\\Template');
                 // 编译并加载模板文件
                 $tpl->fetch($_content,$this->tVar,$prefix);
-            }            
+            }
         }
         // 获取并清空缓存
         $content = ob_get_clean();
@@ -150,52 +131,6 @@ class View {
         // 输出模板文件
         return $content;
     }
-
-    /**
-     * 检查缓存文件是否有效
-     * 如果无效则需要重新编译
-     * @access public
-     * @param string $tmplTemplateFile  模板文件名
-     * @return boolean
-     */
-    protected function checkCache($tmplTemplateFile,$prefix='') {
-        if (!C('TMPL_CACHE_ON')) // 优先对配置设定检测
-            return false;
-        $tmplCacheFile = C('CACHE_PATH').$prefix.md5($tmplTemplateFile).C('TMPL_CACHFILE_SUFFIX');
-        if(!Storage::has($tmplCacheFile)){
-            return false;
-        }elseif (filemtime($tmplTemplateFile) > Storage::get($tmplCacheFile,'mtime')) {
-            // 模板文件如果有更新则缓存需要更新
-            return false;
-        }elseif (C('TMPL_CACHE_TIME') != 0 && time() > Storage::get($tmplCacheFile,'mtime')+C('TMPL_CACHE_TIME')) {
-            // 缓存是否在有效期
-            return false;
-        }
-        // 开启布局模板
-        if(C('LAYOUT_ON')) {
-            $layoutFile  =  THEME_PATH.C('LAYOUT_NAME').C('TMPL_TEMPLATE_SUFFIX');
-            if(filemtime($layoutFile) > Storage::get($tmplCacheFile,'mtime')) {
-                return false;
-            }
-        }
-        // 缓存有效
-        return true;
-    }
-
-    /**
-     * 检查缓存内容是否有效
-     * 如果无效则需要重新编译
-     * @access public
-     * @param string $tmplContent  模板内容
-     * @return boolean
-     */
-    protected function checkContentCache($tmplContent,$prefix='') {
-        if(Storage::has(C('CACHE_PATH').$prefix.md5($tmplContent).C('TMPL_CACHFILE_SUFFIX'))){
-            return true;
-        }else{
-            return false;
-        }
-    }  
 
     /**
      * 自动定位模板文件
@@ -244,22 +179,11 @@ class View {
         $theme = $this->getTemplateTheme();
         // 获取当前主题的模版路径
         $tmplPath   =   C('VIEW_PATH'); // 模块设置独立的视图目录
-        if(!$tmplPath){ 
+        if(!$tmplPath){
             // 定义TMPL_PATH 则改变全局的视图目录到模块之外
             $tmplPath   =   defined('TMPL_PATH')? TMPL_PATH.$module.'/' : APP_PATH.$module.'/'.C('DEFAULT_V_LAYER').'/';
         }
         return $tmplPath.$theme;
-    }
-
-    /**
-     * 设置当前输出的模板主题
-     * @access public
-     * @param  mixed $theme 主题名称
-     * @return View
-     */
-    public function theme($theme){
-        $this->theme = $theme;
-        return $this;
     }
 
     /**
@@ -288,6 +212,82 @@ class View {
         }
         defined('THEME_NAME') || define('THEME_NAME',   $theme);                  // 当前模板主题名称
         return $theme?$theme . '/':'';
+    }
+
+    /**
+     * 检查缓存内容是否有效
+     * 如果无效则需要重新编译
+     * @access public
+     * @param string $tmplContent  模板内容
+     * @return boolean
+     */
+    protected function checkContentCache($tmplContent,$prefix='') {
+        if(Storage::has(C('CACHE_PATH').$prefix.md5($tmplContent).C('TMPL_CACHFILE_SUFFIX'))){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    /**
+     * 检查缓存文件是否有效
+     * 如果无效则需要重新编译
+     * @access public
+     * @param string $tmplTemplateFile  模板文件名
+     * @return boolean
+     */
+    protected function checkCache($tmplTemplateFile,$prefix='') {
+        if (!C('TMPL_CACHE_ON')) // 优先对配置设定检测
+            return false;
+        $tmplCacheFile = C('CACHE_PATH').$prefix.md5($tmplTemplateFile).C('TMPL_CACHFILE_SUFFIX');
+        if(!Storage::has($tmplCacheFile)){
+            return false;
+        }elseif (filemtime($tmplTemplateFile) > Storage::get($tmplCacheFile,'mtime')) {
+            // 模板文件如果有更新则缓存需要更新
+            return false;
+        }elseif (C('TMPL_CACHE_TIME') != 0 && time() > Storage::get($tmplCacheFile,'mtime')+C('TMPL_CACHE_TIME')) {
+            // 缓存是否在有效期
+            return false;
+        }
+        // 开启布局模板
+        if(C('LAYOUT_ON')) {
+            $layoutFile  =  THEME_PATH.C('LAYOUT_NAME').C('TMPL_TEMPLATE_SUFFIX');
+            if(filemtime($layoutFile) > Storage::get($tmplCacheFile,'mtime')) {
+                return false;
+            }
+        }
+        // 缓存有效
+        return true;
+    }
+
+    /**
+     * 输出内容文本可以包括Html
+     * @access private
+     * @param string $content 输出内容
+     * @param string $charset 模板输出字符集
+     * @param string $contentType 输出类型
+     * @return mixed
+     */
+    private function render($content,$charset='',$contentType=''){
+        if(empty($charset))  $charset = C('DEFAULT_CHARSET');
+        if(empty($contentType)) $contentType = C('TMPL_CONTENT_TYPE');
+        // 网页字符编码
+        header('Content-Type:'.$contentType.'; charset='.$charset);
+        header('Cache-control: '.C('HTTP_CACHE_CONTROL'));  // 页面缓存控制
+        header('X-Powered-By:ThinkPHP');
+        // 输出模板文件
+        echo $content;
+    }
+
+    /**
+     * 设置当前输出的模板主题
+     * @access public
+     * @param  mixed $theme 主题名称
+     * @return View
+     */
+    public function theme($theme){
+        $this->theme = $theme;
+        return $this;
     }
 
 }

@@ -18,28 +18,6 @@ use Think\Db\Driver;
 class Mysql extends Driver{
 
     /**
-     * 解析pdo连接的dsn信息
-     * @access public
-     * @param array $config 连接信息
-     * @return string
-     */
-    protected function parseDsn($config){
-        $dsn  =   'mysql:dbname='.$config['database'].';host='.$config['hostname'];
-        if(!empty($config['hostport'])) {
-            $dsn  .= ';port='.$config['hostport'];
-        }elseif(!empty($config['socket'])){
-            $dsn  .= ';unix_socket='.$config['socket'];
-        }
-
-        if(!empty($config['charset'])){
-            //为兼容各版本PHP,用两种方式设置编码
-            $this->options[\PDO::MYSQL_ATTR_INIT_COMMAND]    =   'SET NAMES '.$config['charset'];
-            $dsn  .= ';charset='.$config['charset'];
-        }
-        return $dsn;
-    }
-
-    /**
      * 取得数据表的字段信息
      * @access public
      */
@@ -52,7 +30,7 @@ class Mysql extends Driver{
         }else{
         	$sql   = 'SHOW COLUMNS FROM `'.$tableName.'`';
         }
-        
+
         $result = $this->query($sql);
         $info   =   array();
         if($result) {
@@ -85,20 +63,6 @@ class Mysql extends Driver{
             $info[$key] = current($val);
         }
         return $info;
-    }
-
-    /**
-     * 字段和表名处理
-     * @access protected
-     * @param string $key
-     * @return string
-     */
-    protected function parseKey(&$key) {
-        $key   =  trim($key);
-        if(!is_numeric($key) && !preg_match('/[,\'\"\*\(\)`.\s]/',$key)) {
-           $key = '`'.$key.'`';
-        }
-        return $key;
     }
 
     /**
@@ -144,13 +108,13 @@ class Mysql extends Driver{
     /**
      * ON DUPLICATE KEY UPDATE 分析
      * @access protected
-     * @param mixed $duplicate 
+     * @param mixed $duplicate
      * @return string
      */
     protected function parseDuplicate($duplicate){
         // 布尔值或空则返回空字符串
         if(is_bool($duplicate) || empty($duplicate)) return '';
-        
+
         if(is_string($duplicate)){
         	// field1,field2 转数组
         	$duplicate = explode(',', $duplicate);
@@ -182,8 +146,20 @@ class Mysql extends Driver{
         if(empty($updates)) return '';
         return " ON DUPLICATE KEY UPDATE ".join(', ', $updates);
     }
-    
-	
+
+    /**
+     * 字段和表名处理
+     * @access protected
+     * @param string $key
+     * @return string
+     */
+    protected function parseKey(&$key) {
+        $key   =  trim($key);
+        if(!is_numeric($key) && !preg_match('/[,\'\"\*\(\)`.\s]/',$key)) {
+           $key = '`'.$key.'`';
+        }
+        return $key;
+    }
 
     /**
      * 执行存储过程查询 返回多个数据集
@@ -231,5 +207,27 @@ class Mysql extends Driver{
             $this->_linkID->setAttribute(\PDO::ATTR_ERRMODE, $this->options[\PDO::ATTR_ERRMODE]);
             return false;
         }
+    }
+    
+    /**
+     * 解析pdo连接的dsn信息
+     * @access public
+     * @param array $config 连接信息
+     * @return string
+     */
+    protected function parseDsn($config){
+        $dsn  =   'mysql:dbname='.$config['database'].';host='.$config['hostname'];
+        if(!empty($config['hostport'])) {
+            $dsn  .= ';port='.$config['hostport'];
+        }elseif(!empty($config['socket'])){
+            $dsn  .= ';unix_socket='.$config['socket'];
+        }
+
+        if(!empty($config['charset'])){
+            //为兼容各版本PHP,用两种方式设置编码
+            $this->options[\PDO::MYSQL_ATTR_INIT_COMMAND]    =   'SET NAMES '.$config['charset'];
+            $dsn  .= ';charset='.$config['charset'];
+        }
+        return $dsn;
     }
 }

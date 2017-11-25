@@ -144,8 +144,6 @@
 		//	Methods used in older parser versions, soon will be removed
 		function set_templatefile ($template_filename)	{	$this->tpl_file  =  $template_filename;	}
 		function add_value ($name, $value )				{	$this->assign($name, $value);	}
-		function add_array ($name, $value )				{	$this->append($name, $value);	}
-
 
 		/**
 		* Assign Template Content
@@ -177,6 +175,7 @@
 			}
 		}
 
+		function add_array ($name, $value )				{	$this->append($name, $value);	}
 
 		/**
 		* Assign Template Content
@@ -298,6 +297,22 @@
 			unset ($_top);
 		}
 
+		/**
+		* Determine Last Filechange Date (if File exists)
+		*
+		* @access private
+		* @param string $filename
+		* @return mixed
+		* @desc Determine Last Filechange Date
+		*/
+		function mtime ( $filename )
+		{
+			if (@is_file($filename))
+			{
+				$ret = filemtime($filename);
+				return $ret;
+			}
+		}
 
 		/**
 		* Debug Template
@@ -323,7 +338,6 @@
 				exit( "SmartTemplate Error: Cannot find class.smarttemplatedebugger.php; check SmartTemplate installation");
 			}
 		}
-
 
 		/**
 		* Start Ouput Content Buffering
@@ -353,7 +367,6 @@
 			}
 		}
 
-
 		/**
 		* Output Buffer Callback Function
 		*
@@ -369,24 +382,6 @@
 				fclose($hd);
 			}
 			return $output;
-		}
-
-
-		/**
-		* Determine Last Filechange Date (if File exists)
-		*
-		* @access private
-		* @param string $filename
-		* @return mixed
-		* @desc Determine Last Filechange Date
-		*/
-		function mtime ( $filename )
-		{
-			if (@is_file($filename))
-			{
-				$ret = filemtime($filename);
-				return $ret;
-			}
 		}
 	}
 ?>

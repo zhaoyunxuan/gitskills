@@ -115,23 +115,57 @@ class Template_Lite {
 		}
 	}
 
-	function assign($key, $value = null)
+	function _get_plugin_dir($plugin_name)
 	{
-		if (is_array($key))
+		static $_path_array = null;
+
+		$plugin_dir_path = "";
+		$_plugin_dir_list = is_array($this->plugins_dir) ? $this->plugins_dir : (array)$this->plugins_dir;
+		foreach ($_plugin_dir_list as $_plugin_dir)
 		{
-			foreach($key as $var => $val)
-				if ($var != "")
-				{
-					$this->_vars[$var] = $val;
-				}
-		}
-		else
-		{
-			if ($key != "")
+			if (!preg_match("/^([\/\\\\]|[a-zA-Z]:[\/\\\\])/", $_plugin_dir))
 			{
-				$this->_vars[$key] = $value;
+				// path is relative
+				if (file_exists(dirname(__FILE__) . DIRECTORY_SEPARATOR . $_plugin_dir . DIRECTORY_SEPARATOR . $plugin_name))
+				{
+					$plugin_dir_path = dirname(__FILE__) . DIRECTORY_SEPARATOR . $_plugin_dir . DIRECTORY_SEPARATOR;
+					break;
+				}
+			}
+			else
+			{
+				// path is absolute
+				if(!isset($_path_array))
+				{
+					$_ini_include_path = ini_get('include_path');
+
+					if(strstr($_ini_include_path,';'))
+					{
+						// windows pathnames
+						$_path_array = explode(';',$_ini_include_path);
+					}
+					else
+					{
+						$_path_array = explode(':',$_ini_include_path);
+					}
+				}
+
+				if(!in_array($_plugin_dir,$_path_array))
+				{
+					array_unshift($_path_array,$_plugin_dir);
+				}
+
+				foreach ($_path_array as $_include_path)
+				{
+					if (file_exists($_include_path . DIRECTORY_SEPARATOR . $plugin_name))
+					{
+						$plugin_dir_path = $_include_path . DIRECTORY_SEPARATOR;
+						break 2;
+					}
+				}
 			}
 		}
+		return $plugin_dir_path;
 	}
 
 	function assign_by_ref($key, $value = null)
@@ -338,6 +372,45 @@ class Template_Lite {
 		$this->_destroy_dir($file, null, $this->_get_dir($this->compile_dir));
 	}
 
+	function _destroy_dir($file, $id, $dir)
+	{
+		if(!function_exists("template_destroy_dir"))
+		{
+			require_once(TEMPLATE_LITE_DIR . "internal/template.destroy_dir.php");
+		}
+		return template_destroy_dir($file, $id, $dir, $this);
+	}
+
+	function _get_dir($dir, $id = null)
+	{
+		if (empty($dir))
+		{
+			$dir = '.';
+		}
+		if (substr($dir, -1) != DIRECTORY_SEPARATOR)
+		{
+			$dir .= DIRECTORY_SEPARATOR;
+		}
+		if (!empty($id))
+		{
+			$_args = explode('|', $id);
+			if (count($_args) == 1 && empty($_args[0]))
+			{
+				return $dir;
+			}
+			foreach($_args as $value)
+			{
+				$dir .= $value.DIRECTORY_SEPARATOR;
+			}
+		}
+		return $dir;
+	}
+
+	function clear_all_cache($exp_time = null)
+	{
+		$this->clear_cache();
+	}
+
 	function clear_cache($file = null, $cache_id = null, $compile_id = null, $exp_time = null)
 	{
 		if (!$this->cache)
@@ -345,11 +418,6 @@ class Template_Lite {
 			return;
 		}
 		$this->_destroy_dir($file, $cache_id, $this->_get_dir($this->cache_dir));
-	}
-
-	function clear_all_cache($exp_time = null)
-	{
-		$this->clear_cache();
 	}
 
 	function is_cached($file, $cache_id = null)
@@ -362,6 +430,118 @@ class Template_Lite {
 		{
 			return false;
 		}
+	}
+
+	function _is_cached($file, $cache_id)
+	{
+		$this->_cache_dir = $this->_get_dir($this->cache_dir, $cache_id);
+		$this->config_dir = $this->_get_dir($this->config_dir);
+		$this->template_dir = $this->_get_dir($this->template_dir);
+
+		$file = $this->_get_resource($file);
+
+		$name = ($this->encode_file_name) ? md5((($this->_resource_type == 1) ? $this->template_dir.$file : $this->_resource_type . "_" . $file)).'.php' : str_replace(".", "_", str_replace("/", "_", $this->_resource_type . "_" . $file)).'.php';
+
+		if (file_exists($this->_cache_dir.$name) && (((time() - filemtime($this->_cache_dir.$name)) < $this->cache_lifetime) || $this->cache_lifetime == -1) && (filemtime($this->_cache_dir.$name) > $this->_resource_time))
+		{
+			$fh = fopen($this->_cache_dir.$name, "r");
+			if (!feof($fh) && ($line = fgets($fh, filesize($this->_cache_dir.$name))))
+			{
+				$includes = unserialize($line);
+				if (isset($includes['template']))
+				{
+					foreach($includes['template'] as $value)
+					{
+						if (!(file_exists($this->template_dir.$value) && (filemtime($this->_cache_dir.$name) > filemtime($this->template_dir.$value))))
+						{
+							return false;
+						}
+					}
+				}
+				if (isset($includes['config']))
+				{
+					foreach($includes['config'] as $value)
+					{
+						if (!(file_exists($this->config_dir.$value) && (filemtime($this->_cache_dir.$name) > filemtime($this->config_dir.$value))))
+						{
+							return false;
+						}
+					}
+				}
+			}
+			fclose($fh);
+		}
+		else
+		{
+			return false;
+		}
+		return true;
+	}
+
+	function _get_resource($file)
+	{
+		$_resource_name = explode(':', trim($file));
+
+		if (count($_resource_name) == 1 || $_resource_name[0] == "file")
+        {
+			if($_resource_name[0] == "file")
+			{
+				$file = substr($file, 5);
+			}
+
+			$exists = $this->template_exists($file);
+
+			if (!$exists)
+			{
+				$this->trigger_error("file '$file' does not exist", E_USER_ERROR);
+			}
+		}
+		else
+		{
+			$this->_resource_type = $_resource_name[0];
+			$file = substr($file, strlen($this->_resource_type) + 1);
+			$exists = isset($this->_plugins['resource'][$this->_resource_type]) && call_user_func_array($this->_plugins['resource'][$this->_resource_type][1], array($file, &$resource_timestamp, &$this));
+
+			if (!$exists)
+			{
+				$this->trigger_error("file '$file' does not exist", E_USER_ERROR);
+			}
+			$this->_resource_time = $resource_timestamp;
+		}
+		return $file;
+	}
+
+	function template_exists($file)
+	{
+		if (file_exists($this->_get_dir($this->template_dir).$file))
+		{
+			$this->_resource_time = filemtime($this->_get_dir($this->template_dir).$file);
+			$this->_resource_type = 1;
+			return true;
+		}
+		else
+		{
+			if (file_exists($file))
+			{
+				$this->_resource_time = filemtime($file);
+				$this->_resource_type = "file";
+				return true;
+			}
+			return false;
+		}
+	}
+
+	function trigger_error($error_msg, $error_type = E_USER_ERROR, $file = null, $line = null)
+	{
+		if(isset($file) && isset($line))
+		{
+			$info = ' ('.basename($file).", line $line)";
+		}
+		else
+		{
+			$info = null;
+		}
+		trigger_error('TPL: [in ' . $this->_file . ' line ' . $this->_linenum . "]: syntax error: $error_msg$info", $error_type);
 	}
 
 	function register_modifier($modifier, $implementation)
@@ -452,59 +632,6 @@ class Template_Lite {
 	function unregister_resource($type)
 	{
 		unset($this->_plugins['resource'][$type]);
-	}
-
-	function template_exists($file)
-	{
-		if (file_exists($this->_get_dir($this->template_dir).$file))
-		{
-			$this->_resource_time = filemtime($this->_get_dir($this->template_dir).$file);
-			$this->_resource_type = 1;
-			return true;
-		}
-		else
-		{
-			if (file_exists($file))
-			{
-				$this->_resource_time = filemtime($file);
-				$this->_resource_type = "file";
-				return true;
-			}
-			return false;
-		}
-	}
-
-	function _get_resource($file)
-	{
-		$_resource_name = explode(':', trim($file));
-
-		if (count($_resource_name) == 1 || $_resource_name[0] == "file")
-        {
-			if($_resource_name[0] == "file")
-			{
-				$file = substr($file, 5);
-			}
-
-			$exists = $this->template_exists($file);
-
-			if (!$exists)
-			{
-				$this->trigger_error("file '$file' does not exist", E_USER_ERROR);
-			}
-		}
-		else
-		{
-			$this->_resource_type = $_resource_name[0];
-			$file = substr($file, strlen($this->_resource_type) + 1);
-			$exists = isset($this->_plugins['resource'][$this->_resource_type]) && call_user_func_array($this->_plugins['resource'][$this->_resource_type][1], array($file, &$resource_timestamp, &$this));
-
-			if (!$exists)
-			{
-				$this->trigger_error("file '$file' does not exist", E_USER_ERROR);
-			}
-			$this->_resource_time = $resource_timestamp;
-		}
-		return $file;
 	}
 
 	function display($file, $cache_id = null)
@@ -602,64 +729,13 @@ class Template_Lite {
 		}
 	}
 
-	function config_load($file, $section_name = null, $var_name = null)
+	function _build_dir($dir, $id)
 	{
-		require_once(TEMPLATE_LITE_DIR . "internal/template.config_loader.php");
-	}
-
-	function _is_cached($file, $cache_id)
-	{
-		$this->_cache_dir = $this->_get_dir($this->cache_dir, $cache_id);
-		$this->config_dir = $this->_get_dir($this->config_dir);
-		$this->template_dir = $this->_get_dir($this->template_dir);
-
-		$file = $this->_get_resource($file);
-
-		$name = ($this->encode_file_name) ? md5((($this->_resource_type == 1) ? $this->template_dir.$file : $this->_resource_type . "_" . $file)).'.php' : str_replace(".", "_", str_replace("/", "_", $this->_resource_type . "_" . $file)).'.php';
-
-		if (file_exists($this->_cache_dir.$name) && (((time() - filemtime($this->_cache_dir.$name)) < $this->cache_lifetime) || $this->cache_lifetime == -1) && (filemtime($this->_cache_dir.$name) > $this->_resource_time))
+		if(!function_exists("template_build_dir"))
 		{
-			$fh = fopen($this->_cache_dir.$name, "r");
-			if (!feof($fh) && ($line = fgets($fh, filesize($this->_cache_dir.$name))))
-			{
-				$includes = unserialize($line);
-				if (isset($includes['template']))
-				{
-					foreach($includes['template'] as $value)
-					{
-						if (!(file_exists($this->template_dir.$value) && (filemtime($this->_cache_dir.$name) > filemtime($this->template_dir.$value))))
-						{
-							return false;
-						}
-					}
-				}
-				if (isset($includes['config']))
-				{
-					foreach($includes['config'] as $value)
-					{
-						if (!(file_exists($this->config_dir.$value) && (filemtime($this->_cache_dir.$name) > filemtime($this->config_dir.$value))))
-						{
-							return false;
-						}
-					}
-				}
-			}
-			fclose($fh);
+			require_once(TEMPLATE_LITE_DIR . "internal/template.build_dir.php");
 		}
-		else
-		{
-			return false;
-		}
-		return true;
-	}
-
-	function _fetch_compile_include($_templatelite_include_file, $_templatelite_include_vars)
-	{
-		if(!function_exists("template_fetch_compile_include"))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/template.fetch_compile_include.php");
-		}
-		return template_fetch_compile_include($_templatelite_include_file, $_templatelite_include_vars, $this);
+		return template_build_dir($dir, $id, $this);
 	}
 
 	function _fetch_compile($file)
@@ -748,6 +824,30 @@ class Template_Lite {
 		return $output;
 	}
 
+	function config_load($file, $section_name = null, $var_name = null)
+	{
+		require_once(TEMPLATE_LITE_DIR . "internal/template.config_loader.php");
+	}
+
+	function _fetch_compile_include($_templatelite_include_file, $_templatelite_include_vars)
+	{
+		if(!function_exists("template_fetch_compile_include"))
+		{
+			require_once(TEMPLATE_LITE_DIR . "internal/template.fetch_compile_include.php");
+		}
+		return template_fetch_compile_include($_templatelite_include_file, $_templatelite_include_vars, $this);
+	}
+
+//	function _parse_resource_link($resource_link)
+//	{
+//		$stuffing = "file:/this/is/the/time_5-23.tpl";
+//		$stuffing_data = explode(":", $stuffing);
+//		preg_match_all('/(?:([0-9a-z._-]+))/i', $stuffing, $stuff);
+//		print_r($stuff);
+//		echo "<br>Path: " . str_replace($stuff[0][count($stuff[0]) - 1], "", $stuffing);
+//		echo "<br>Filename: " . $stuff[0][count($stuff[0]) - 1];
+//	}
+
 	function _run_modifier()
 	{
 		$arguments = func_get_args();
@@ -804,123 +904,23 @@ class Template_Lite {
 		}
 	}
 
-	function _get_dir($dir, $id = null)
+	function assign($key, $value = null)
 	{
-		if (empty($dir))
+		if (is_array($key))
 		{
-			$dir = '.';
-		}
-		if (substr($dir, -1) != DIRECTORY_SEPARATOR)
-		{
-			$dir .= DIRECTORY_SEPARATOR;
-		}
-		if (!empty($id))
-		{
-			$_args = explode('|', $id);
-			if (count($_args) == 1 && empty($_args[0]))
-			{
-				return $dir;
-			}
-			foreach($_args as $value)
-			{
-				$dir .= $value.DIRECTORY_SEPARATOR;
-			}
-		}
-		return $dir;
-	}
-
-	function _get_plugin_dir($plugin_name)
-	{
-		static $_path_array = null;
-
-		$plugin_dir_path = "";
-		$_plugin_dir_list = is_array($this->plugins_dir) ? $this->plugins_dir : (array)$this->plugins_dir;
-		foreach ($_plugin_dir_list as $_plugin_dir)
-		{
-			if (!preg_match("/^([\/\\\\]|[a-zA-Z]:[\/\\\\])/", $_plugin_dir))
-			{
-				// path is relative
-				if (file_exists(dirname(__FILE__) . DIRECTORY_SEPARATOR . $_plugin_dir . DIRECTORY_SEPARATOR . $plugin_name))
+			foreach($key as $var => $val)
+				if ($var != "")
 				{
-					$plugin_dir_path = dirname(__FILE__) . DIRECTORY_SEPARATOR . $_plugin_dir . DIRECTORY_SEPARATOR;
-					break;
+					$this->_vars[$var] = $val;
 				}
-			}
-			else
-			{
-				// path is absolute
-				if(!isset($_path_array))
-				{
-					$_ini_include_path = ini_get('include_path');
-
-					if(strstr($_ini_include_path,';'))
-					{
-						// windows pathnames
-						$_path_array = explode(';',$_ini_include_path);
-					}
-					else
-					{
-						$_path_array = explode(':',$_ini_include_path);
-					}
-				}
-
-				if(!in_array($_plugin_dir,$_path_array))
-				{
-					array_unshift($_path_array,$_plugin_dir);
-				}
-
-				foreach ($_path_array as $_include_path)
-				{
-					if (file_exists($_include_path . DIRECTORY_SEPARATOR . $plugin_name))
-					{
-						$plugin_dir_path = $_include_path . DIRECTORY_SEPARATOR;
-						break 2;
-					}
-				}
-			}
-		}
-		return $plugin_dir_path;
-	}
-
-//	function _parse_resource_link($resource_link)
-//	{
-//		$stuffing = "file:/this/is/the/time_5-23.tpl";
-//		$stuffing_data = explode(":", $stuffing);
-//		preg_match_all('/(?:([0-9a-z._-]+))/i', $stuffing, $stuff);
-//		print_r($stuff);
-//		echo "<br>Path: " . str_replace($stuff[0][count($stuff[0]) - 1], "", $stuffing);
-//		echo "<br>Filename: " . $stuff[0][count($stuff[0]) - 1];
-//	}
-
-	function _build_dir($dir, $id)
-	{
-		if(!function_exists("template_build_dir"))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/template.build_dir.php");
-		}
-		return template_build_dir($dir, $id, $this);
-	}
-
-	function _destroy_dir($file, $id, $dir)
-	{
-		if(!function_exists("template_destroy_dir"))
-		{
-			require_once(TEMPLATE_LITE_DIR . "internal/template.destroy_dir.php");
-		}
-		return template_destroy_dir($file, $id, $dir, $this);
-	}
-
-	function trigger_error($error_msg, $error_type = E_USER_ERROR, $file = null, $line = null)
-	{
-		if(isset($file) && isset($line))
-		{
-			$info = ' ('.basename($file).", line $line)";
 		}
 		else
 		{
-			$info = null;
+			if ($key != "")
+			{
+				$this->_vars[$key] = $value;
+			}
 		}
-		trigger_error('TPL: [in ' . $this->_file . ' line ' . $this->_linenum . "]: syntax error: $error_msg$info", $error_type);
 	}
 }
 ?>

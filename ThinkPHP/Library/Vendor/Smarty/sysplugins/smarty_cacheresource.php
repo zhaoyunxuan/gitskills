@@ -29,114 +29,6 @@ abstract class Smarty_CacheResource {
     );
 
     /**
-    * populate Cached Object with meta data from Resource
-    *
-    * @param Smarty_Template_Cached $cached cached object
-    * @param Smarty_Internal_Template $_template template object
-    * @return void
-    */
-    public abstract function populate(Smarty_Template_Cached $cached, Smarty_Internal_Template $_template);
-
-    /**
-    * populate Cached Object with timestamp and exists from Resource
-    *
-    * @param Smarty_Template_Cached $source cached object
-    * @return void
-    */
-    public abstract function populateTimestamp(Smarty_Template_Cached $cached);
-
-    /**
-    * Read the cached template and process header
-    *
-    * @param Smarty_Internal_Template $_template template object
-    * @param Smarty_Template_Cached $cached cached object
-    * @return booelan true or false if the cached content does not exist
-    */
-    public abstract function process(Smarty_Internal_Template $_template, Smarty_Template_Cached $cached=null);
-
-    /**
-    * Write the rendered template output to cache
-    *
-    * @param Smarty_Internal_Template $_template template object
-    * @param string $content content to cache
-    * @return boolean success
-    */
-    public abstract function writeCachedContent(Smarty_Internal_Template $_template, $content);
-
-    /**
-    * Return cached content
-    *
-    * @param Smarty_Internal_Template $_template template object
-    * @param string $content content of cache
-    */
-    public function getCachedContent(Smarty_Internal_Template $_template)
-    {
-        if ($_template->cached->handler->process($_template)) {
-            ob_start();
-            $_template->properties['unifunc']($_template);
-            return ob_get_clean();
-        }
-        return null;
-    }
-
-    /**
-    * Empty cache
-    *
-    * @param Smarty $smarty Smarty object
-    * @param integer $exp_time expiration time (number of seconds, not timestamp)
-    * @return integer number of cache files deleted
-    */
-    public abstract function clearAll(Smarty $smarty, $exp_time=null);
-
-    /**
-    * Empty cache for a specific template
-    *
-    * @param Smarty $smarty Smarty object
-    * @param string $resource_name template name
-    * @param string $cache_id cache id
-    * @param string $compile_id compile id
-    * @param integer $exp_time expiration time (number of seconds, not timestamp)
-    * @return integer number of cache files deleted
-    */
-    public abstract function clear(Smarty $smarty, $resource_name, $cache_id, $compile_id, $exp_time);
-
-
-    public function locked(Smarty $smarty, Smarty_Template_Cached $cached)
-    {
-        // theoretically locking_timeout should be checked against time_limit (max_execution_time)
-        $start = microtime(true);
-        $hadLock = null;
-        while ($this->hasLock($smarty, $cached)) {
-            $hadLock = true;
-            if (microtime(true) - $start > $smarty->locking_timeout) {
-                // abort waiting for lock release
-                return false;
-            }
-            sleep(1);
-        }
-        return $hadLock;
-    }
-
-    public function hasLock(Smarty $smarty, Smarty_Template_Cached $cached)
-    {
-        // check if lock exists
-        return false;
-    }
-
-    public function acquireLock(Smarty $smarty, Smarty_Template_Cached $cached)
-    {
-        // create lock
-        return true;
-    }
-
-    public function releaseLock(Smarty $smarty, Smarty_Template_Cached $cached)
-    {
-        // release lock
-        return true;
-    }
-
-
-    /**
     * Load Cache Resource Handler
     *
     * @param Smarty $smarty Smarty object
@@ -153,7 +45,7 @@ abstract class Smarty_CacheResource {
         if (isset($smarty->_cacheresource_handlers[$type])) {
             return $smarty->_cacheresource_handlers[$type];
         }
-        
+
         // try registered resource
         if (isset($smarty->registered_cache_resources[$type])) {
             // do not cache these instances as they may vary from instance to instance
@@ -192,6 +84,112 @@ abstract class Smarty_CacheResource {
                 $tpl->cached->processed = false;
             }
         }
+    }
+
+    /**
+    * populate Cached Object with meta data from Resource
+    *
+    * @param Smarty_Template_Cached $cached cached object
+    * @param Smarty_Internal_Template $_template template object
+    * @return void
+    */
+    public abstract function populate(Smarty_Template_Cached $cached, Smarty_Internal_Template $_template);
+
+    /**
+    * populate Cached Object with timestamp and exists from Resource
+    *
+    * @param Smarty_Template_Cached $source cached object
+    * @return void
+    */
+    public abstract function populateTimestamp(Smarty_Template_Cached $cached);
+
+    /**
+    * Write the rendered template output to cache
+    *
+    * @param Smarty_Internal_Template $_template template object
+    * @param string $content content to cache
+    * @return boolean success
+    */
+    public abstract function writeCachedContent(Smarty_Internal_Template $_template, $content);
+
+    /**
+    * Return cached content
+    *
+    * @param Smarty_Internal_Template $_template template object
+    * @param string $content content of cache
+    */
+    public function getCachedContent(Smarty_Internal_Template $_template)
+    {
+        if ($_template->cached->handler->process($_template)) {
+            ob_start();
+            $_template->properties['unifunc']($_template);
+            return ob_get_clean();
+        }
+        return null;
+    }
+
+    /**
+    * Read the cached template and process header
+    *
+    * @param Smarty_Internal_Template $_template template object
+    * @param Smarty_Template_Cached $cached cached object
+    * @return booelan true or false if the cached content does not exist
+    */
+    public abstract function process(Smarty_Internal_Template $_template, Smarty_Template_Cached $cached=null);
+
+    /**
+    * Empty cache
+    *
+    * @param Smarty $smarty Smarty object
+    * @param integer $exp_time expiration time (number of seconds, not timestamp)
+    * @return integer number of cache files deleted
+    */
+    public abstract function clearAll(Smarty $smarty, $exp_time=null);
+
+    /**
+    * Empty cache for a specific template
+    *
+    * @param Smarty $smarty Smarty object
+    * @param string $resource_name template name
+    * @param string $cache_id cache id
+    * @param string $compile_id compile id
+    * @param integer $exp_time expiration time (number of seconds, not timestamp)
+    * @return integer number of cache files deleted
+    */
+    public abstract function clear(Smarty $smarty, $resource_name, $cache_id, $compile_id, $exp_time);
+
+    public function locked(Smarty $smarty, Smarty_Template_Cached $cached)
+    {
+        // theoretically locking_timeout should be checked against time_limit (max_execution_time)
+        $start = microtime(true);
+        $hadLock = null;
+        while ($this->hasLock($smarty, $cached)) {
+            $hadLock = true;
+            if (microtime(true) - $start > $smarty->locking_timeout) {
+                // abort waiting for lock release
+                return false;
+            }
+            sleep(1);
+        }
+        return $hadLock;
+    }
+
+    public function hasLock(Smarty $smarty, Smarty_Template_Cached $cached)
+    {
+        // check if lock exists
+        return false;
+    }
+
+    public function acquireLock(Smarty $smarty, Smarty_Template_Cached $cached)
+    {
+        // create lock
+        return true;
+    }
+
+    public function releaseLock(Smarty $smarty, Smarty_Template_Cached $cached)
+    {
+        // release lock
+        return true;
     }
 }
 

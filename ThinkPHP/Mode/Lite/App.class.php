@@ -15,6 +15,23 @@ namespace Think;
 class App {
 
     /**
+     * 运行应用实例 入口文件使用的快捷方法
+     * @access public
+     * @return void
+     */
+    static public function run() {
+        App::init();
+        // Session初始化
+        if(!IS_CLI){
+            session(C('SESSION_OPTIONS'));
+        }
+        // 记录应用初始化时间
+        G('initTime');
+        App::exec();
+        return ;
+    }
+
+    /**
      * 应用程序初始化
      * @access public
      * @return void
@@ -55,12 +72,12 @@ class App {
      * @return void
      */
     static public function exec() {
-    
+
         if(!preg_match('/^[A-Za-z](\/|\w)*$/',CONTROLLER_NAME)){ // 安全检测
             $module  =  false;
         }else{
             //创建控制器实例
-            $module  =  controller(CONTROLLER_NAME);                
+            $module  =  controller(CONTROLLER_NAME);
         }
 
         if(!$module) {
@@ -72,7 +89,7 @@ class App {
         }
 
         // 获取当前操作名 支持动态路由
-        $action    =   ACTION_NAME.C('ACTION_SUFFIX');  
+        $action    =   ACTION_NAME.C('ACTION_SUFFIX');
 
         try{
             if(!preg_match('/^[A-Za-z](\w)*$/',$action)){
@@ -107,7 +124,7 @@ class App {
                             $args[] =   $param->getDefaultValue();
                         }else{
                             E(L('_PARAM_ERROR_').':'.$name);
-                        }   
+                        }
                     }
                     // 开启绑定参数过滤机制
                     if(C('URL_PARAMS_SAFE')){
@@ -117,7 +134,7 @@ class App {
                             foreach($filters as $filter){
                                 $args   =   array_map_recursive($filter,$args); // 参数过滤
                             }
-                        }                        
+                        }
                     }
 					array_walk_recursive($args,'think_filter');
                     $method->invokeArgs($module,$args);
@@ -128,28 +145,11 @@ class App {
                 // 操作方法不是Public 抛出异常
                 throw new \ReflectionException();
             }
-        } catch (\ReflectionException $e) { 
+        } catch (\ReflectionException $e) {
             // 方法调用发生异常后 引导到__call方法处理
             $method = new \ReflectionMethod($module,'__call');
             $method->invokeArgs($module,array($action,''));
         }
-        return ;
-    }
-
-    /**
-     * 运行应用实例 入口文件使用的快捷方法
-     * @access public
-     * @return void
-     */
-    static public function run() {
-        App::init();
-        // Session初始化
-        if(!IS_CLI){
-            session(C('SESSION_OPTIONS'));
-        }
-        // 记录应用初始化时间
-        G('initTime');
-        App::exec();
         return ;
     }
 

@@ -146,41 +146,6 @@ class Gd{
     }
 
     /**
-     * 裁剪图像
-     * @param  integer $w      裁剪区域宽度
-     * @param  integer $h      裁剪区域高度
-     * @param  integer $x      裁剪区域x坐标
-     * @param  integer $y      裁剪区域y坐标
-     * @param  integer $width  图像保存宽度
-     * @param  integer $height 图像保存高度
-     */
-    public function crop($w, $h, $x = 0, $y = 0, $width = null, $height = null){
-        if(empty($this->img)) E('没有可以被裁剪的图像资源');
-
-        //设置保存尺寸
-        empty($width)  && $width  = $w;
-        empty($height) && $height = $h;
-
-        do {
-            //创建新图像
-            $img = imagecreatetruecolor($width, $height);
-            // 调整默认颜色
-            $color = imagecolorallocate($img, 255, 255, 255);
-            imagefill($img, 0, 0, $color);
-
-            //裁剪
-            imagecopyresampled($img, $this->img, 0, 0, $x, $y, $width, $height, $w, $h);
-            imagedestroy($this->img); //销毁原图
-
-            //设置新图像
-            $this->img = $img;
-        } while(!empty($this->gif) && $this->gifNext());
-
-        $this->info['width']  = $width;
-        $this->info['height'] = $height;
-    }
-
-    /**
      * 生成缩略图
      * @param  integer $width  缩略图最大宽度
      * @param  integer $height 缩略图最大高度
@@ -202,7 +167,7 @@ class Gd{
 
                 //计算缩放比例
                 $scale = min($width/$w, $height/$h);
-                
+
                 //设置缩略图的坐标及宽度和高度
                 $x = $y = 0;
                 $width  = $w * $scale;
@@ -271,7 +236,7 @@ class Gd{
                     imagedestroy($this->img); //销毁原图
                     $this->img = $img;
                 } while(!empty($this->gif) && $this->gifNext());
-                
+
                 $this->info['width']  = $width;
                 $this->info['height'] = $height;
                 return;
@@ -287,6 +252,59 @@ class Gd{
 
         /* 裁剪图像 */
         $this->crop($w, $h, $x, $y, $width, $height);
+    }
+
+    private function gifNext(){
+        ob_start();
+        ob_implicit_flush(0);
+        imagegif($this->img);
+        $img = ob_get_clean();
+
+        $this->gif->image($img);
+        $next = $this->gif->nextImage();
+
+        if($next){
+            $this->img = imagecreatefromstring($next);
+            return $next;
+        } else {
+            $this->img = imagecreatefromstring($this->gif->image());
+            return false;
+        }
+    }
+
+    /**
+     * 裁剪图像
+     * @param  integer $w      裁剪区域宽度
+     * @param  integer $h      裁剪区域高度
+     * @param  integer $x      裁剪区域x坐标
+     * @param  integer $y      裁剪区域y坐标
+     * @param  integer $width  图像保存宽度
+     * @param  integer $height 图像保存高度
+     */
+    public function crop($w, $h, $x = 0, $y = 0, $width = null, $height = null){
+        if(empty($this->img)) E('没有可以被裁剪的图像资源');
+
+        //设置保存尺寸
+        empty($width)  && $width  = $w;
+        empty($height) && $height = $h;
+
+        do {
+            //创建新图像
+            $img = imagecreatetruecolor($width, $height);
+            // 调整默认颜色
+            $color = imagecolorallocate($img, 255, 255, 255);
+            imagefill($img, 0, 0, $color);
+
+            //裁剪
+            imagecopyresampled($img, $this->img, 0, 0, $x, $y, $width, $height, $w, $h);
+            imagedestroy($this->img); //销毁原图
+
+            //设置新图像
+            $this->img = $img;
+        } while(!empty($this->gif) && $this->gifNext());
+
+        $this->info['width']  = $width;
+        $this->info['height'] = $height;
     }
 
     /**
@@ -396,6 +414,8 @@ class Gd{
         imagedestroy($water);
     }
 
+    /* 切换到GIF的下一帧并保存当前帧，内部使用 */
+
     /**
      * 图像添加文字
      * @param  string  $text   添加的文字
@@ -406,7 +426,7 @@ class Gd{
      * @param  integer $offset 文字相对当前位置的偏移量
      * @param  integer $angle  文字倾斜角度
      */
-    public function text($text, $font, $size, $color = '#00000000', 
+    public function text($text, $font, $size, $color = '#00000000',
         $locate = Image::IMAGE_WATER_SOUTHEAST, $offset = 0, $angle = 0){
         //资源检测
         if(empty($this->img)) E('没有可以被写入文字的图像资源');
@@ -414,10 +434,10 @@ class Gd{
 
         //获取文字信息
         $info = imagettfbbox($size, $angle, $font, $text);
-        $minx = min($info[0], $info[2], $info[4], $info[6]); 
-        $maxx = max($info[0], $info[2], $info[4], $info[6]); 
-        $miny = min($info[1], $info[3], $info[5], $info[7]); 
-        $maxy = max($info[1], $info[3], $info[5], $info[7]); 
+        $minx = min($info[0], $info[2], $info[4], $info[6]);
+        $maxx = max($info[0], $info[2], $info[4], $info[6]);
+        $miny = min($info[1], $info[3], $info[5], $info[7]);
+        $maxy = max($info[1], $info[3], $info[5], $info[7]);
 
         /* 计算文字初始坐标和尺寸 */
         $x = $minx;
@@ -512,25 +532,6 @@ class Gd{
             $col = imagecolorallocatealpha($this->img, $color[0], $color[1], $color[2], $color[3]);
             imagettftext($this->img, $size, $angle, $x + $ox, $y + $oy, $col, $font, $text);
         } while(!empty($this->gif) && $this->gifNext());
-    }
-
-    /* 切换到GIF的下一帧并保存当前帧，内部使用 */
-    private function gifNext(){
-        ob_start();
-        ob_implicit_flush(0);
-        imagegif($this->img);
-        $img = ob_get_clean();
-
-        $this->gif->image($img);
-        $next = $this->gif->nextImage();
-
-        if($next){
-            $this->img = imagecreatefromstring($next);
-            return $next;
-        } else {
-            $this->img = imagecreatefromstring($this->gif->image());
-            return false;
-        }
     }
 
     /**

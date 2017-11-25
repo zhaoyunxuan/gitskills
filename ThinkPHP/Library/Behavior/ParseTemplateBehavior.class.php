@@ -48,6 +48,21 @@ class ParseTemplateBehavior {
     }
 
     /**
+     * 检查缓存内容是否有效
+     * 如果无效则需要重新编译
+     * @access public
+     * @param string $tmplContent  模板内容
+     * @return boolean
+     */
+    protected function checkContentCache($tmplContent,$prefix='') {
+        if(Storage::has(C('CACHE_PATH').$prefix.md5($tmplContent).C('TMPL_CACHFILE_SUFFIX'))){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    /**
      * 检查缓存文件是否有效
      * 如果无效则需要重新编译
      * @access public
@@ -77,19 +92,4 @@ class ParseTemplateBehavior {
         // 缓存有效
         return true;
     }
-
-    /**
-     * 检查缓存内容是否有效
-     * 如果无效则需要重新编译
-     * @access public
-     * @param string $tmplContent  模板内容
-     * @return boolean
-     */
-    protected function checkContentCache($tmplContent,$prefix='') {
-        if(Storage::has(C('CACHE_PATH').$prefix.md5($tmplContent).C('TMPL_CACHFILE_SUFFIX'))){
-            return true;
-        }else{
-            return false;
-        }
-    }    
 }

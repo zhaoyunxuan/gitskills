@@ -18,11 +18,11 @@
 abstract class Smarty_Internal_TemplateCompilerBase {
 
     /**
-     * hash for nocache sections
+     * compile tag objects
      *
-     * @var mixed
+     * @var array
      */
-    private $nocache_hash = null;
+    public static $_tag_objects = array();
     /**
      * suppress generation of nocache code
      *
@@ -35,12 +35,6 @@ abstract class Smarty_Internal_TemplateCompilerBase {
      * @var bool
      */
     public $suppressMergedTemplates = false;
-    /**
-     * compile tag objects
-     *
-     * @var array
-     */
-    public static $_tag_objects = array();
     /**
      * tag stack
      *
@@ -112,6 +106,12 @@ abstract class Smarty_Internal_TemplateCompilerBase {
      * @var array
      */
     public $modifier_plugins = array();
+    /**
+     * hash for nocache sections
+     *
+     * @var mixed
+     */
+    private $nocache_hash = null;
 
     /**
      * Initialize compiler
@@ -440,6 +440,49 @@ abstract class Smarty_Internal_TemplateCompilerBase {
     }
 
     /**
+     * display compiler error messages without dying
+     *
+     * If parameter $args is empty it is a parser detected syntax error.
+     * In this case the parser is called to obtain information about expected tokens.
+     *
+     * If parameter $args contains a string this is used as error message
+     *
+     * @param string $args individual error message or null
+     * @param string $line line-number
+     * @throws SmartyCompilerException when an unexpected token is found
+     */
+    public function trigger_template_error($args = null, $line = null)
+    {
+        // get template source line which has error
+        if (!isset($line)) {
+            $line = $this->lex->line;
+        }
+        $match = preg_split("/\n/", $this->lex->data);
+        $error_text = 'Syntax Error in template "' . $this->template->source->filepath . '"  on line ' . $line . ' "' . htmlspecialchars(trim(preg_replace('![\t\r\n]+!',' ',$match[$line-1]))) . '" ';
+        if (isset($args)) {
+            // individual error message
+            $error_text .= $args;
+        } else {
+            // expected token from parser
+            $error_text .= ' - Unexpected "' . $this->lex->value.'"';
+            if (count($this->parser->yy_get_expected_tokens($this->parser->yymajor)) <= 4 ) {
+                foreach ($this->parser->yy_get_expected_tokens($this->parser->yymajor) as $token) {
+                    $exp_token = $this->parser->yyTokenName[$token];
+                    if (isset($this->lex->smarty_token_names[$exp_token])) {
+                        // token type from lexer
+                        $expect[] = '"' . $this->lex->smarty_token_names[$exp_token] . '"';
+                    } else {
+                        // otherwise internal token name
+                        $expect[] = $this->parser->yyTokenName[$token];
+                    }
+                }
+                $error_text .= ', expected one of: ' . implode(' , ', $expect);
+            }
+        }
+        throw new SmartyCompilerException($error_text);
+    }
+
+    /**
      * Check for plugins and return function name
      *
      * @param string $pugin_name  name of plugin or function
@@ -576,49 +619,6 @@ abstract class Smarty_Internal_TemplateCompilerBase {
         $this->suppressNocacheProcessing = false;
         $this->tag_nocache = false;
         return $_output;
-    }
-
-    /**
-     * display compiler error messages without dying
-     *
-     * If parameter $args is empty it is a parser detected syntax error.
-     * In this case the parser is called to obtain information about expected tokens.
-     *
-     * If parameter $args contains a string this is used as error message
-     *
-     * @param string $args individual error message or null
-     * @param string $line line-number
-     * @throws SmartyCompilerException when an unexpected token is found
-     */
-    public function trigger_template_error($args = null, $line = null)
-    {
-        // get template source line which has error
-        if (!isset($line)) {
-            $line = $this->lex->line;
-        }
-        $match = preg_split("/\n/", $this->lex->data);
-        $error_text = 'Syntax Error in template "' . $this->template->source->filepath . '"  on line ' . $line . ' "' . htmlspecialchars(trim(preg_replace('![\t\r\n]+!',' ',$match[$line-1]))) . '" ';
-        if (isset($args)) {
-            // individual error message
-            $error_text .= $args;
-        } else {
-            // expected token from parser
-            $error_text .= ' - Unexpected "' . $this->lex->value.'"';
-            if (count($this->parser->yy_get_expected_tokens($this->parser->yymajor)) <= 4 ) {
-                foreach ($this->parser->yy_get_expected_tokens($this->parser->yymajor) as $token) {
-                    $exp_token = $this->parser->yyTokenName[$token];
-                    if (isset($this->lex->smarty_token_names[$exp_token])) {
-                        // token type from lexer
-                        $expect[] = '"' . $this->lex->smarty_token_names[$exp_token] . '"';
-                    } else {
-                        // otherwise internal token name
-                        $expect[] = $this->parser->yyTokenName[$token];
-                    }
-                }
-                $error_text .= ', expected one of: ' . implode(' , ', $expect);
-            }
-        }
-        throw new SmartyCompilerException($error_text);
     }
 
 }

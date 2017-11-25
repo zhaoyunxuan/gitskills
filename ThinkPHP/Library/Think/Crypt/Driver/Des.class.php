@@ -34,26 +34,7 @@ class Des {
         return self::_des($key,$str,1);
     }
 
-    /**
-     * 解密字符串
-     * @param string $str 字符串
-     * @param string $key 加密key
-     * @return string
-     */
-    public static function decrypt($str, $key) {
-        if ($str == "") {
-            return "";
-        }
-        $data   =    self::_des($key,$str,0);
-        $expire = substr($data,0,10);
-        if($expire > 0 && $expire < time()) {
-            return '';
-        }
-        $data   = substr($data,10);
-        return $data;
-    }
-
-    /**
+/**
      * Des算法
      * @param string $str 字符串
      * @param string $key 加密key
@@ -150,7 +131,7 @@ class Des {
 
       //return the result as an array
       return ($result . $tempresult);
-    } //end of des
+    }
 
     /**
      * createKeys
@@ -236,6 +217,25 @@ class Des {
       } //for each iterations
       //return the keys we've created
       return $keys;
+    } //end of des
+
+        /**
+     * 解密字符串
+     * @param string $str 字符串
+     * @param string $key 加密key
+     * @return string
+     */
+    public static function decrypt($str, $key) {
+        if ($str == "") {
+            return "";
+        }
+        $data   =    self::_des($key,$str,0);
+        $expire = substr($data,0,10);
+        if($expire > 0 && $expire < time()) {
+            return '';
+        }
+        $data   = substr($data,10);
+        return $data;
     } //end of des_createKeys
 
 }

@@ -12,6 +12,14 @@ namespace Org\Util;
 class String {
 
     /**
+     * 生成Guid主键
+     * @return Boolean
+     */
+    static public function keyGen() {
+        return str_replace('-','',substr(String::uuid(),1,-1));
+    }
+
+    /**
      * 生成UUID 单机使用
      * @access public
      * @return string
@@ -27,14 +35,6 @@ class String {
                .substr($charid,20,12)
                .chr(125);// "}"
         return $uuid;
-    }
-
-    /**
-     * 生成Guid主键
-     * @return Boolean
-     */
-    static public function keyGen() {
-        return str_replace('-','',substr(String::uuid(),1,-1));
     }
 
     /**
@@ -69,30 +69,32 @@ class String {
     }
 
     /**
-     * 字符串截取，支持中文和其他编码
-     * @static
-     * @access public
-     * @param string $str 需要转换的字符串
-     * @param string $start 开始位置
-     * @param string $length 截取长度
-     * @param string $charset 编码格式
-     * @param string $suffix 截断显示字符
+     * 生成一定数量的随机数，并且不重复
+     * @param integer $number 数量
+     * @param string $len 长度
+     * @param string $type 字串类型
+     * 0 字母 1 数字 其它 混合
      * @return string
      */
-    static public function msubstr($str, $start=0, $length, $charset="utf-8", $suffix=true) {
-        if(function_exists("mb_substr"))
-            $slice = mb_substr($str, $start, $length, $charset);
-        elseif(function_exists('iconv_substr')) {
-            $slice = iconv_substr($str,$start,$length,$charset);
-        }else{
-            $re['utf-8']   = "/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xff][\x80-\xbf]{3}/";
-            $re['gb2312'] = "/[\x01-\x7f]|[\xb0-\xf7][\xa0-\xfe]/";
-            $re['gbk']    = "/[\x01-\x7f]|[\x81-\xfe][\x40-\xfe]/";
-            $re['big5']   = "/[\x01-\x7f]|[\x81-\xfe]([\x40-\x7e]|\xa1-\xfe])/";
-            preg_match_all($re[$charset], $str, $match);
-            $slice = join("",array_slice($match[0], $start, $length));
-        }
-        return $suffix ? $slice.'...' : $slice;
+    static public function buildCountRand ($number,$length=4,$mode=1) {
+            if($mode==1 && $length<strlen($number) ) {
+                //不足以生成一定数量的不重复数字
+                return false;
+            }
+            $rand   =  array();
+            for($i=0; $i<$number; $i++) {
+                $rand[] =   self::randString($length,$mode);
+            }
+            $unqiue = array_unique($rand);
+            if(count($unqiue)==count($rand)) {
+                return $rand;
+            }
+            $count   = count($rand)-count($unqiue);
+            for($i=0; $i<$count*3; $i++) {
+                $rand[] =   self::randString($length,$mode);
+            }
+            $rand = array_slice(array_unique ($rand),0,$number);
+            return $rand;
     }
 
     /**
@@ -143,32 +145,30 @@ class String {
     }
 
     /**
-     * 生成一定数量的随机数，并且不重复
-     * @param integer $number 数量
-     * @param string $len 长度
-     * @param string $type 字串类型
-     * 0 字母 1 数字 其它 混合
+     * 字符串截取，支持中文和其他编码
+     * @static
+     * @access public
+     * @param string $str 需要转换的字符串
+     * @param string $start 开始位置
+     * @param string $length 截取长度
+     * @param string $charset 编码格式
+     * @param string $suffix 截断显示字符
      * @return string
      */
-    static public function buildCountRand ($number,$length=4,$mode=1) {
-            if($mode==1 && $length<strlen($number) ) {
-                //不足以生成一定数量的不重复数字
-                return false;
-            }
-            $rand   =  array();
-            for($i=0; $i<$number; $i++) {
-                $rand[] =   self::randString($length,$mode);
-            }
-            $unqiue = array_unique($rand);
-            if(count($unqiue)==count($rand)) {
-                return $rand;
-            }
-            $count   = count($rand)-count($unqiue);
-            for($i=0; $i<$count*3; $i++) {
-                $rand[] =   self::randString($length,$mode);
-            }
-            $rand = array_slice(array_unique ($rand),0,$number);
-            return $rand;
+    static public function msubstr($str, $start=0, $length, $charset="utf-8", $suffix=true) {
+        if(function_exists("mb_substr"))
+            $slice = mb_substr($str, $start, $length, $charset);
+        elseif(function_exists('iconv_substr')) {
+            $slice = iconv_substr($str,$start,$length,$charset);
+        }else{
+            $re['utf-8']   = "/[\x01-\x7f]|[\xc2-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf]{2}|[\xf0-\xff][\x80-\xbf]{3}/";
+            $re['gb2312'] = "/[\x01-\x7f]|[\xb0-\xf7][\xa0-\xfe]/";
+            $re['gbk']    = "/[\x01-\x7f]|[\x81-\xfe][\x40-\xfe]/";
+            $re['big5']   = "/[\x01-\x7f]|[\x81-\xfe]([\x40-\x7e]|\xa1-\xfe])/";
+            preg_match_all($re[$charset], $str, $match);
+            $slice = join("",array_slice($match[0], $start, $length));
+        }
+        return $suffix ? $slice.'...' : $slice;
     }
 
     /**

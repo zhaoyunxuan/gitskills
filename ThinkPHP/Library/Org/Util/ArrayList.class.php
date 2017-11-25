@@ -45,25 +45,17 @@ class ArrayList implements \IteratorAggregate {
         return new ArrayObject($this->_elements);
     }
 
-    /**
-     * 增加元素
-     * @access public
-     * @param mixed $element  要添加的元素
-     * @return boolean
-     */
-    public function add($element) {
-        return (array_push($this->_elements, $element)) ? true : false;
-    }
-
-    //
     public function unshift($element) {
         return (array_unshift($this->_elements,$element))?true : false;
     }
 
     //
+
     public function pop() {
         return array_pop($this->_elements);
     }
+
+    //
 
     /**
      * 增加元素列表
@@ -78,6 +70,25 @@ class ArrayList implements \IteratorAggregate {
         }
         $after = $this->size();
         return ($before < $after);
+    }
+
+    /**
+     * 获取列表长度
+     * @access public
+     * @return integer
+     */
+    public function size() {
+        return count($this->_elements);
+    }
+
+    /**
+     * 增加元素
+     * @access public
+     * @param mixed $element  要添加的元素
+     * @return boolean
+     */
+    public function add($element) {
+        return (array_push($this->_elements, $element)) ? true : false;
     }
 
     /**
@@ -96,16 +107,6 @@ class ArrayList implements \IteratorAggregate {
      */
     public function contains($element) {
         return (array_search($element, $this->_elements) !== false );
-    }
-
-    /**
-     * 根据索引取得元素
-     * @access public
-     * @param integer $index 索引
-     * @return mixed
-     */
-    public function get($index) {
-        return $this->_elements[$index];
     }
 
     /**
@@ -138,6 +139,16 @@ class ArrayList implements \IteratorAggregate {
         for ($i = (count($this->_elements) - 1); $i > 0; $i--) {
             if ($element == $this->get($i)) { return $i; }
         }
+    }
+
+    /**
+     * 根据索引取得元素
+     * @access public
+     * @param integer $index 索引
+     * @return mixed
+     */
+    public function get($index) {
+        return $this->_elements[$index];
     }
 
     public function toJson() {
@@ -197,15 +208,6 @@ class ArrayList implements \IteratorAggregate {
         $previous = $this->get($index);
         $this->_elements[$index] = $element;
         return $previous;
-    }
-
-    /**
-     * 获取列表长度
-     * @access public
-     * @return integer
-     */
-    public function size() {
-        return count($this->_elements);
     }
 
     /**

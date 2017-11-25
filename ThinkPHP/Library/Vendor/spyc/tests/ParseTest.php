@@ -6,10 +6,6 @@ class ParseTest extends PHPUnit_Framework_TestCase {
 
     protected $yaml;
 
-    protected function setUp() {
-      $this->yaml = spyc_load_file('../spyc.yaml');
-    }
-
     public function testMergeHashKeys() {
       $Expected =  array (
         array ('step' => array('instrument' => 'Lasik 2000', 'pulseEnergy' => 5.4, 'pulseDuration' => 12, 'repetition' => 1000, 'spotSize' => '1mm')),
@@ -302,6 +298,10 @@ dog', $this->yaml['many_lines']);
       $this->assertSame (array ('1' => 'nummer 1', '0' => 'Stunde 0'), $this->yaml['werte']);
     }
 
+    public function testColonsInKeys() {
+      $this->assertSame (array (1000), $this->yaml['a:1']);
+    }
+
     /* public function testNoIndent() {
       $this->assertSame (array(
         array ('record1'=>'value1'),
@@ -309,10 +309,6 @@ dog', $this->yaml['many_lines']);
       )
       , $this->yaml['noindent_records']);
     } */
-
-    public function testColonsInKeys() {
-      $this->assertSame (array (1000), $this->yaml['a:1']);
-    }
 
     public function testColonsInKeys2() {
       $this->assertSame (array (2000), $this->yaml['a:2']);
@@ -370,12 +366,13 @@ dog', $this->yaml['many_lines']);
       $this->assertEquals ($Expected, $Actual['bar']);
     }
 
-    // Plain characters http://www.yaml.org/spec/1.2/spec.html#id2789510
     public function testKai() {
       $Expected = array('-example' => 'value');
       $Actual = spyc_load_file ('indent_1.yaml');
       $this->assertEquals ($Expected, $Actual['kai']);
     }
+
+    // Plain characters http://www.yaml.org/spec/1.2/spec.html#id2789510
 
     public function testKaiList() {
       $Expected = array ('-item', '-item', '-item');
@@ -393,9 +390,14 @@ dog', $this->yaml['many_lines']);
       $this->assertSame ($expected, $this->yaml['quotes']);
     }
 
-    // Separation spaces http://www.yaml.org/spec/1.2/spec.html#id2778394
     public function testMultipleArrays() {
       $expected = array(array(array('x')));
       $this->assertSame($expected, Spyc::YAMLLoad("- - - x"));
+    }
+
+    // Separation spaces http://www.yaml.org/spec/1.2/spec.html#id2778394
+
+    protected function setUp() {
+      $this->yaml = spyc_load_file('../spyc.yaml');
     }
 }

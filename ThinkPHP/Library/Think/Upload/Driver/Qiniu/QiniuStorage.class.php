@@ -16,57 +16,6 @@
 			$this->timeout 	= 	isset($config['timeout'])? $config['timeout'] : 3600;
 		}
 
-		static function sign($sk, $ak, $data){
-			$sign = hash_hmac('sha1', $data, $sk, true);
-			return $ak . ':' . self::Qiniu_Encode($sign);
-		}
-
-		static function signWithData($sk, $ak, $data){
-			$data = self::Qiniu_Encode($data);
-			return self::sign($sk, $ak, $data) . ':' . $data;
-		}
-
-		public function accessToken($url, $body=''){
-			$parsed_url = 	parse_url($url);
-		    $path 		= 	$parsed_url['path'];
-		    $access 	= 	$path;
-		    if (isset($parsed_url['query'])) {
-		        $access .= "?" . $parsed_url['query'];
-		    }
-		    $access    .= "\n";
-
-		    if($body){
-		        $access .= $body;
-		    }
-		    return self::sign($this->sk, $this->ak, $access);
-		}
-
-		public function UploadToken($sk ,$ak ,$param){
-			$param['deadline'] = $param['Expires'] == 0? 3600: $param['Expires'];
-			$param['deadline'] += time();
-			$data = array('scope'=> $this->bucket, 'deadline'=>$param['deadline']);
-			if (!empty($param['CallbackUrl'])) {
-				$data['callbackUrl'] = $param['CallbackUrl'];
-			}
-			if (!empty($param['CallbackBody'])) {
-				$data['callbackBody'] = $param['CallbackBody'];
-			}
-			if (!empty($param['ReturnUrl'])) {
-				$data['returnUrl'] = $param['ReturnUrl'];
-			}
-			if (!empty($param['ReturnBody'])) {
-				$data['returnBody'] = $param['ReturnBody'];
-			}
-			if (!empty($param['AsyncOps'])) {
-				$data['asyncOps'] = $param['AsyncOps'];
-			}
-			if (!empty($param['EndUser'])) {
-				$data['endUser'] = $param['EndUser'];
-			}
-			$data = json_encode($data);
-			return self::SignWithData($sk, $ak, $data);
-		}
-
 		public function upload($config, $file){
 			$uploadToken = $this->UploadToken($this->sk, $this->ak, $config);
 
@@ -110,113 +59,46 @@
 			return $response;
 		}
 
-		public function dealWithType($key, $type){
-			$param 		= 	$this->buildUrlParam();
-			$url 		= 	'';
-
-			switch($type){
-				case 'img':
-					$url = $this->downLink($key);
-					if($param['imageInfo']){
-						$url .= '?imageInfo';
-					}else if($param['exif']){
-						$url .= '?exif';
-					}else if($param['imageView']){
-						$url .= '?imageView/'.$param['mode'];
-						if($param['w'])
-							$url .= "/w/{$param['w']}";
-						if($param['h'])
-							$url .= "/h/{$param['h']}";
-						if($param['q'])
-							$url .= "/q/{$param['q']}";
-						if($param['format'])
-							$url .= "/format/{$param['format']}";
-					}
-					break;
-				case 'video': //TODO 视频处理
-				case 'doc':
-					$url = $this->downLink($key);
-					$url .= '?md2html';
-					if(isset($param['mode']))
-						$url .= '/'.(int)$param['mode'];
-					if($param['cssurl'])
-						$url .= '/'. self::Qiniu_Encode($param['cssurl']);
-					break;
-
+		public function UploadToken($sk ,$ak ,$param){
+			$param['deadline'] = $param['Expires'] == 0? 3600: $param['Expires'];
+			$param['deadline'] += time();
+			$data = array('scope'=> $this->bucket, 'deadline'=>$param['deadline']);
+			if (!empty($param['CallbackUrl'])) {
+				$data['callbackUrl'] = $param['CallbackUrl'];
 			}
-			return $url;
-		}
-
-		public function buildUrlParam(){
-			return $_REQUEST;
-		}
-
-		//获取某个路径下的文件列表
-		public function getList($query = array(), $path = ''){
-			$query 			= 	array_merge(array('bucket'=>$this->bucket), $query);
-			$url 			= 	"{$this->QINIU_RSF_HOST}/list?".http_build_query($query);
-			$accessToken 	= 	$this->accessToken($url);
-			$response 		= 	$this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
-			return $response;
-		}
-
-		//获取某个文件的信息
-		public function info($key){
-			$key 			= 	trim($key);
-			$url 			= 	"{$this->QINIU_RS_HOST}/stat/" . self::Qiniu_Encode("{$this->bucket}:{$key}");
-			$accessToken 	= 	$this->accessToken($url);
-			$response 		= 	$this->request($url, 'POST', array(
-				'Authorization' 	=>	"QBox $accessToken",
-			));
-			return $response;
-		}
-
-		//获取文件下载资源链接
-		public function downLink($key){
-			$key = urlencode($key);
-			$key = self::Qiniu_escapeQuotes($key);
-			$url = "http://{$this->domain}/{$key}";
-			return $url;
-		}
-
-		//重命名单个文件
-		public function rename($file, $new_file){
-			$key = trim($file);
-			$url = "{$this->QINIU_RS_HOST}/move/" . self::Qiniu_Encode("{$this->bucket}:{$key}") .'/'. self::Qiniu_Encode("{$this->bucket}:{$new_file}");
-			trace($url);
-			$accessToken = $this->accessToken($url);
-			$response = $this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
-			return $response;
-		}
-
-		//删除单个文件
-		public function del($file){
-			$key = trim($file);
-			$url = "{$this->QINIU_RS_HOST}/delete/" . self::Qiniu_Encode("{$this->bucket}:{$key}");
-			$accessToken = $this->accessToken($url);
-			$response = $this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
-			return $response;
-		}
-
-		//批量删除文件
-		public function delBatch($files){
-			$url = $this->QINIU_RS_HOST . '/batch';
-			$ops = array();
-			foreach ($files as $file) {
-				$ops[] = "/delete/". self::Qiniu_Encode("{$this->bucket}:{$file}");
+			if (!empty($param['CallbackBody'])) {
+				$data['callbackBody'] = $param['CallbackBody'];
 			}
-			$params = 'op=' . implode('&op=', $ops);
-			$url .= '?'.$params;
-			trace($url);
-			$accessToken = $this->accessToken($url);
-			$response = $this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
-			return $response;
+			if (!empty($param['ReturnUrl'])) {
+				$data['returnUrl'] = $param['ReturnUrl'];
+			}
+			if (!empty($param['ReturnBody'])) {
+				$data['returnBody'] = $param['ReturnBody'];
+			}
+			if (!empty($param['AsyncOps'])) {
+				$data['asyncOps'] = $param['AsyncOps'];
+			}
+			if (!empty($param['EndUser'])) {
+				$data['endUser'] = $param['EndUser'];
+			}
+			$data = json_encode($data);
+			return self::SignWithData($sk, $ak, $data);
+		}
+
+		static function signWithData($sk, $ak, $data){
+			$data = self::Qiniu_Encode($data);
+			return self::sign($sk, $ak, $data) . ':' . $data;
 		}
 
 		static function Qiniu_Encode($str) {// URLSafeBase64Encode
 			$find = array('+', '/');
 			$replace = array('-', '_');
 			return str_replace($find, $replace, base64_encode($str));
+		}
+
+		static function sign($sk, $ak, $data){
+			$sign = hash_hmac('sha1', $data, $sk, true);
+			return $ak . ':' . self::Qiniu_Encode($sign);
 		}
 
 		static function Qiniu_escapeQuotes($str){
@@ -300,6 +182,8 @@
 	        }
 	    }
 
+		//获取某个路径下的文件列表
+
         /**
 	     * 获取响应数据
 	     * @param  string $text 响应头字符串
@@ -318,6 +202,8 @@
 	        return $items;
 	    }
 
+		//获取某个文件的信息
+
         /**
 	     * 获取请求错误信息
 	     * @param  string $header 请求返回头信息
@@ -330,4 +216,124 @@
 	        $this->errorStr = json_decode($body ,1);
 	        $this->errorStr = $this->errorStr['error'];
 	    }
+
+		//获取文件下载资源链接
+
+		public function dealWithType($key, $type){
+			$param 		= 	$this->buildUrlParam();
+			$url 		= 	'';
+
+			switch($type){
+				case 'img':
+					$url = $this->downLink($key);
+					if($param['imageInfo']){
+						$url .= '?imageInfo';
+					}else if($param['exif']){
+						$url .= '?exif';
+					}else if($param['imageView']){
+						$url .= '?imageView/'.$param['mode'];
+						if($param['w'])
+							$url .= "/w/{$param['w']}";
+						if($param['h'])
+							$url .= "/h/{$param['h']}";
+						if($param['q'])
+							$url .= "/q/{$param['q']}";
+						if($param['format'])
+							$url .= "/format/{$param['format']}";
+					}
+					break;
+				case 'video': //TODO 视频处理
+				case 'doc':
+					$url = $this->downLink($key);
+					$url .= '?md2html';
+					if(isset($param['mode']))
+						$url .= '/'.(int)$param['mode'];
+					if($param['cssurl'])
+						$url .= '/'. self::Qiniu_Encode($param['cssurl']);
+					break;
+
+			}
+			return $url;
+		}
+
+		//重命名单个文件
+
+		public function buildUrlParam(){
+			return $_REQUEST;
+		}
+
+		//删除单个文件
+
+		public function downLink($key){
+			$key = urlencode($key);
+			$key = self::Qiniu_escapeQuotes($key);
+			$url = "http://{$this->domain}/{$key}";
+			return $url;
+		}
+
+		//批量删除文件
+
+		public function getList($query = array(), $path = ''){
+			$query 			= 	array_merge(array('bucket'=>$this->bucket), $query);
+			$url 			= 	"{$this->QINIU_RSF_HOST}/list?".http_build_query($query);
+			$accessToken 	= 	$this->accessToken($url);
+			$response 		= 	$this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
+			return $response;
+		}
+
+		public function accessToken($url, $body=''){
+			$parsed_url = 	parse_url($url);
+		    $path 		= 	$parsed_url['path'];
+		    $access 	= 	$path;
+		    if (isset($parsed_url['query'])) {
+		        $access .= "?" . $parsed_url['query'];
+		    }
+		    $access    .= "\n";
+
+		    if($body){
+		        $access .= $body;
+		    }
+		    return self::sign($this->sk, $this->ak, $access);
+		}
+
+		public function info($key){
+			$key 			= 	trim($key);
+			$url 			= 	"{$this->QINIU_RS_HOST}/stat/" . self::Qiniu_Encode("{$this->bucket}:{$key}");
+			$accessToken 	= 	$this->accessToken($url);
+			$response 		= 	$this->request($url, 'POST', array(
+				'Authorization' 	=>	"QBox $accessToken",
+			));
+			return $response;
+		}
+
+		public function rename($file, $new_file){
+			$key = trim($file);
+			$url = "{$this->QINIU_RS_HOST}/move/" . self::Qiniu_Encode("{$this->bucket}:{$key}") .'/'. self::Qiniu_Encode("{$this->bucket}:{$new_file}");
+			trace($url);
+			$accessToken = $this->accessToken($url);
+			$response = $this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
+			return $response;
+		}
+
+		public function del($file){
+			$key = trim($file);
+			$url = "{$this->QINIU_RS_HOST}/delete/" . self::Qiniu_Encode("{$this->bucket}:{$key}");
+			$accessToken = $this->accessToken($url);
+			$response = $this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
+			return $response;
+		}
+
+		public function delBatch($files){
+			$url = $this->QINIU_RS_HOST . '/batch';
+			$ops = array();
+			foreach ($files as $file) {
+				$ops[] = "/delete/". self::Qiniu_Encode("{$this->bucket}:{$file}");
+			}
+			$params = 'op=' . implode('&op=', $ops);
+			$url .= '?'.$params;
+			trace($url);
+			$accessToken = $this->accessToken($url);
+			$response = $this->request($url, 'POST', array('Authorization'=>"QBox $accessToken"));
+			return $response;
+		}
 	}

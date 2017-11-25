@@ -18,20 +18,6 @@ use Think\Db\Driver;
 class Pgsql extends Driver{
 
     /**
-     * 解析pdo连接的dsn信息
-     * @access public
-     * @param array $config 连接信息
-     * @return string
-     */
-    protected function parseDsn($config){
-        $dsn  =   'pgsql:dbname='.$config['database'].';host='.$config['hostname'];
-        if(!empty($config['hostport'])) {
-            $dsn  .= ';port='.$config['hostport'];
-        }
-        return $dsn;
-    }
-
-    /**
      * 取得数据表的字段信息
      * @access public
      * @return array
@@ -86,6 +72,20 @@ class Pgsql extends Driver{
             }
         }
         return $limitStr;
+    }
+
+    /**
+     * 解析pdo连接的dsn信息
+     * @access public
+     * @param array $config 连接信息
+     * @return string
+     */
+    protected function parseDsn($config){
+        $dsn  =   'pgsql:dbname='.$config['database'].';host='.$config['hostname'];
+        if(!empty($config['hostport'])) {
+            $dsn  .= ';port='.$config['hostport'];
+        }
+        return $dsn;
     }
 
 }

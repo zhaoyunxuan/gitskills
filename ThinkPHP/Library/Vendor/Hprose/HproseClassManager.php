@@ -23,10 +23,7 @@
 class HproseClassManager {
     private static $classCache1 = array();
     private static $classCache2 = array();
-    public static function register($class, $alias) {
-        self::$classCache1[$alias] = $class;
-        self::$classCache2[$class] = $alias;        
-    }
+
     public static function getClassAlias($class) {
         if (array_key_exists($class, self::$classCache2)) {
             return self::$classCache2[$class];
@@ -35,6 +32,12 @@ class HproseClassManager {
         self::register($class, $alias);
         return $alias;
     }
+
+    public static function register($class, $alias) {
+        self::$classCache1[$alias] = $class;
+        self::$classCache2[$class] = $alias;
+    }
+
     public static function getClass($alias) {
         if (array_key_exists($alias, self::$classCache1)) {
             return self::$classCache1[$alias];

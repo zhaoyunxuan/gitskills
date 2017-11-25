@@ -44,15 +44,6 @@ class Memcachesae extends Cache {
     }
 
     /**
-     * 是否连接
-     * @access private
-     * @return boolean
-     */
-    private function isConnected() {
-        return $this->connected;
-    }
-
-    /**
      * 读取缓存
      * @access public
      * @param string $name 缓存变量名
@@ -87,6 +78,32 @@ class Memcachesae extends Cache {
         return false;
     }
 
+
+    protected function queue($key) {
+        $queue_name=isset($this->options['queue_name'])?$this->options['queue_name']:'think_queue';
+        $value  =  F($queue_name);
+        if(!$value) {
+            $value   =  array();
+        }
+        // 进列
+        if(false===array_search($key, $value)) array_push($value,$key);
+        if(count($value) > $this->options['length']) {
+            // 出列
+            $key =  array_shift($value);
+            // 删除缓存
+            $this->rm($key);
+            if (APP_DEBUG) {
+                    //调试模式下记录出队次数
+                        $counter = Think::instance('SaeCounter');
+                        if ($counter->exists($queue_name.'_out_times'))
+                            $counter->incr($queue_name.'_out_times');
+                        else
+                            $counter->create($queue_name.'_out_times', 1);
+           }
+        }
+        return F($queue_name,$value);
+    }
+
     /**
      * 删除缓存
      * @access public
@@ -116,29 +133,13 @@ class Memcachesae extends Cache {
      * @return mixed
      */
     //[sae] 下重写queque队列缓存方法
-    protected function queue($key) {
-        $queue_name=isset($this->options['queue_name'])?$this->options['queue_name']:'think_queue';
-        $value  =  F($queue_name);
-        if(!$value) {
-            $value   =  array();
-        }
-        // 进列
-        if(false===array_search($key, $value)) array_push($value,$key);
-        if(count($value) > $this->options['length']) {
-            // 出列
-            $key =  array_shift($value);
-            // 删除缓存
-            $this->rm($key);
-            if (APP_DEBUG) {
-                    //调试模式下记录出队次数
-                        $counter = Think::instance('SaeCounter');
-                        if ($counter->exists($queue_name.'_out_times'))
-                            $counter->incr($queue_name.'_out_times');
-                        else
-                            $counter->create($queue_name.'_out_times', 1);
-           }
-        }
-        return F($queue_name,$value);
+    /**
+     * 是否连接
+     * @access private
+     * @return boolean
+     */
+    private function isConnected() {
+        return $this->connected;
     }
 
 }

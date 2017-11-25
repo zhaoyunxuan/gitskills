@@ -124,6 +124,18 @@ class Mysqli
     }
 
     /**
+     * Session 垃圾回收
+     * @access public
+     * @param string $sessMaxLifeTime
+     */
+    public function gc($sessMaxLifeTime)
+    {
+        $hander = is_array($this->hander) ? $this->hander[0] : $this->hander;
+        mysqli_query($hander, "DELETE FROM " . $this->sessionTable . " WHERE session_expire < " . time());
+        return mysqli_affected_rows($hander);
+    }
+
+    /**
      * 读取Session
      * @access public
      * @param string $sessID
@@ -167,18 +179,6 @@ class Mysqli
         if (mysqli_affected_rows($hander))
             return true;
         return false;
-    }
-
-    /**
-     * Session 垃圾回收
-     * @access public
-     * @param string $sessMaxLifeTime
-     */
-    public function gc($sessMaxLifeTime)
-    {
-        $hander = is_array($this->hander) ? $this->hander[0] : $this->hander;
-        mysqli_query($hander, "DELETE FROM " . $this->sessionTable . " WHERE session_expire < " . time());
-        return mysqli_affected_rows($hander);
     }
 
 }

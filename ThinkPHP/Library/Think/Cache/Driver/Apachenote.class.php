@@ -40,6 +40,16 @@ class Apachenote extends Cache {
     }
 
     /**
+     * 打开缓存
+     * @access private
+     */
+     private function open() {
+         if (!is_resource($this->handler)) {
+             $this->handler = fsockopen($this->options['host'], $this->options['port'], $_, $_, $this->options['timeout']);
+         }
+     }
+
+    /**
      * 读取缓存
      * @access public
      * @param string $name 缓存变量名
@@ -60,6 +70,15 @@ class Apachenote extends Cache {
      }
 
     /**
+     * 关闭缓存
+     * @access private
+     */
+     private function close() {
+         fclose($this->handler);
+         $this->handler = false;
+     }
+
+    /**
      * 写入缓存
      * @access public
      * @param string $name 缓存变量名
@@ -70,7 +89,7 @@ class Apachenote extends Cache {
         N('cache_write',1);
         $this->open();
         $value  =   serialize($value);
-        $name   =   $this->options['prefix'].$name;        
+        $name   =   $this->options['prefix'].$name;
         $s      =   'S' . pack('NN', strlen($name), strlen($value)) . $name . $value;
 
         fwrite($this->handler, $s);
@@ -94,31 +113,12 @@ class Apachenote extends Cache {
      */
      public function rm($name) {
         $this->open();
-        $name   =   $this->options['prefix'].$name;         
+        $name   =   $this->options['prefix'].$name;
         $s      =   'D' . pack('N', strlen($name)) . $name;
         fwrite($this->handler, $s);
         $ret    = fgets($this->handler);
         $this->close();
         return $ret === "OK\n";
-     }
-
-    /**
-     * 关闭缓存
-     * @access private
-     */
-     private function close() {
-         fclose($this->handler);
-         $this->handler = false;
-     }
-
-    /**
-     * 打开缓存
-     * @access private
-     */
-     private function open() {
-         if (!is_resource($this->handler)) {
-             $this->handler = fsockopen($this->options['host'], $this->options['port'], $_, $_, $this->options['timeout']);
-         }
      }
 
 }

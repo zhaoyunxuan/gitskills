@@ -65,30 +65,6 @@ class Local{
     }
 
     /**
-     * 保存指定文件
-     * @param  array   $file    保存的文件信息
-     * @param  boolean $replace 同名文件是否覆盖
-     * @return boolean          保存状态，true-成功，false-失败
-     */
-    public function save($file, $replace=true) {
-        $filename = $this->rootPath . $file['savepath'] . $file['savename'];
-
-        /* 不覆盖同名文件 */ 
-        if (!$replace && is_file($filename)) {
-            $this->error = '存在同名文件' . $file['savename'];
-            return false;
-        }
-
-        /* 移动文件 */
-        if (!move_uploaded_file($file['tmp_name'], $filename)) {
-            $this->error = '文件上传保存错误！';
-            return false;
-        }
-        
-        return true;
-    }
-
-    /**
      * 创建目录
      * @param  string $savepath 要创建的穆里
      * @return boolean          创建状态，true-成功，false-失败
@@ -105,6 +81,30 @@ class Local{
             $this->error = "目录 {$savepath} 创建失败！";
             return false;
         }
+    }
+
+    /**
+     * 保存指定文件
+     * @param  array   $file    保存的文件信息
+     * @param  boolean $replace 同名文件是否覆盖
+     * @return boolean          保存状态，true-成功，false-失败
+     */
+    public function save($file, $replace=true) {
+        $filename = $this->rootPath . $file['savepath'] . $file['savename'];
+
+        /* 不覆盖同名文件 */
+        if (!$replace && is_file($filename)) {
+            $this->error = '存在同名文件' . $file['savename'];
+            return false;
+        }
+
+        /* 移动文件 */
+        if (!move_uploaded_file($file['tmp_name'], $filename)) {
+            $this->error = '文件上传保存错误！';
+            return false;
+        }
+
+        return true;
     }
 
     /**

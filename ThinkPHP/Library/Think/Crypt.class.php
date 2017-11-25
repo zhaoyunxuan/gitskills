@@ -16,12 +16,6 @@ class Crypt {
 
     private static $handler    =   '';
 
-    public static function init($type=''){
-        $type   =   $type?:C('DATA_CRYPT_TYPE');
-        $class  =   strpos($type,'\\')? $type: 'Think\\Crypt\\Driver\\'. ucwords(strtolower($type));
-        self::$handler  =    $class;
-    }
-
     /**
      * 加密字符串
      * @param string $str 字符串
@@ -33,8 +27,14 @@ class Crypt {
         if(empty(self::$handler)){
             self::init();
         }
-        $class  =   self::$handler; 
+        $class  =   self::$handler;
         return $class::encrypt($data,$key,$expire);
+    }
+
+    public static function init($type=''){
+        $type   =   $type?:C('DATA_CRYPT_TYPE');
+        $class  =   strpos($type,'\\')? $type: 'Think\\Crypt\\Driver\\'. ucwords(strtolower($type));
+        self::$handler  =    $class;
     }
 
     /**

@@ -52,6 +52,25 @@ class Ftp {
     }
 
     /**
+     * 登录到FTP服务器
+     * @return boolean true-登录成功，false-登录失败
+     */
+    private function login(){
+        extract($this->config);
+        $this->link = ftp_connect($host, $port, $timeout);
+        if($this->link) {
+            if (ftp_login($this->link, $username, $password)) {
+               return true;
+            } else {
+                $this->error = "无法登录到FTP服务器：username - {$username}";
+            }
+        } else {
+            $this->error = "无法连接到FTP服务器：{$host}";
+        }
+        return false;
+    }
+
+    /**
      * 检测上传根目录
      * @param string $rootpath   根目录
      * @return boolean true-检测通过，false-检测失败
@@ -83,6 +102,27 @@ class Ftp {
     }
 
     /**
+     * 创建目录
+     * @param  string $savepath 要创建的目录
+     * @return boolean          创建状态，true-成功，false-失败
+     */
+    public function mkdir($savepath){
+        $dir = $this->rootPath . $savepath;
+        if(ftp_chdir($this->link, $dir)){
+            return true;
+        }
+
+        if(ftp_mkdir($this->link, $dir)){
+            return true;
+        } elseif($this->mkdir(dirname($savepath)) && ftp_mkdir($this->link, $dir)) {
+            return true;
+        } else {
+            $this->error = "目录 {$savepath} 创建失败！";
+            return false;
+        }
+    }
+
+    /**
      * 保存指定文件
      * @param  array   $file    保存的文件信息
      * @param  boolean $replace 同名文件是否覆盖
@@ -106,51 +146,11 @@ class Ftp {
     }
 
     /**
-     * 创建目录
-     * @param  string $savepath 要创建的目录
-     * @return boolean          创建状态，true-成功，false-失败
-     */
-    public function mkdir($savepath){
-        $dir = $this->rootPath . $savepath;
-        if(ftp_chdir($this->link, $dir)){
-            return true;
-        }
-
-        if(ftp_mkdir($this->link, $dir)){
-            return true;
-        } elseif($this->mkdir(dirname($savepath)) && ftp_mkdir($this->link, $dir)) {
-            return true;
-        } else {
-            $this->error = "目录 {$savepath} 创建失败！";
-            return false;
-        }
-    }
-
-    /**
      * 获取最后一次上传错误信息
      * @return string 错误信息
      */
     public function getError(){
         return $this->error;
-    }
-
-    /**
-     * 登录到FTP服务器
-     * @return boolean true-登录成功，false-登录失败
-     */
-    private function login(){
-        extract($this->config);
-        $this->link = ftp_connect($host, $port, $timeout);
-        if($this->link) {
-            if (ftp_login($this->link, $username, $password)) {
-               return true;
-            } else {
-                $this->error = "无法登录到FTP服务器：username - {$username}";
-            }
-        } else {
-            $this->error = "无法连接到FTP服务器：{$host}";
-        }
-        return false;
     }
 
     /**

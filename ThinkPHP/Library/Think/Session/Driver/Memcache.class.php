@@ -41,39 +41,39 @@ class Memcache {
 	}
 
     /**
-     * 读取Session 
-     * @access public 
-     * @param string $sessID 
+     * Session 垃圾回收
+     * @access public
+     * @param string $sessMaxLifeTime
+     */
+	public function gc($sessMaxLifeTime) {
+		return true;
+	}
+
+    /**
+     * 读取Session
+     * @access public
+     * @param string $sessID
      */
 	public function read($sessID) {
         return $this->handle->get($this->sessionName.$sessID);
 	}
 
     /**
-     * 写入Session 
-     * @access public 
-     * @param string $sessID 
-     * @param String $sessData  
+     * 写入Session
+     * @access public
+     * @param string $sessID
+     * @param String $sessData
      */
 	public function write($sessID, $sessData) {
 		return $this->handle->set($this->sessionName.$sessID, $sessData, 0, $this->lifeTime);
 	}
 
     /**
-     * 删除Session 
-     * @access public 
-     * @param string $sessID 
+     * 删除Session
+     * @access public
+     * @param string $sessID
      */
 	public function destroy($sessID) {
 		return $this->handle->delete($this->sessionName.$sessID);
-	}
-
-    /**
-     * Session 垃圾回收
-     * @access public 
-     * @param string $sessMaxLifeTime 
-     */
-	public function gc($sessMaxLifeTime) {
-		return true;
 	}
 }

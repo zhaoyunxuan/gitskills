@@ -40,32 +40,6 @@ class Smarty_Internal_Compile_Block extends Smarty_Internal_CompileBase {
     public $optional_attributes = array('hide');
 
     /**
-     * Compiles code for the {block} tag
-     *
-     * @param array  $args     array with attributes from parser
-     * @param object $compiler compiler object
-     * @return boolean true
-     */
-    public function compile($args, $compiler)
-    {
-        // check and get attributes
-        $_attr = $this->getAttributes($compiler, $args);
-        $save = array($_attr, $compiler->parser->current_buffer, $compiler->nocache, $compiler->smarty->merge_compiled_includes);
-        $this->openTag($compiler, 'block', $save);
-        if ($_attr['nocache'] == true) {
-            $compiler->nocache = true;
-        }
-        // set flag for {block} tag
-        $compiler->inheritance = true;
-        // must merge includes
-        $compiler->smarty->merge_compiled_includes = true;
-
-        $compiler->parser->current_buffer = new _smarty_template_buffer($compiler->parser);
-        $compiler->has_code = false;
-        return true;
-    }
-
-    /**
      * Save or replace child block source by block name during parsing
      *
      * @param string $block_content     block source content
@@ -186,6 +160,32 @@ class Smarty_Internal_Compile_Block extends Smarty_Internal_CompileBase {
         }
         unset($_tpl);
         return $_output;
+    }
+
+    /**
+     * Compiles code for the {block} tag
+     *
+     * @param array  $args     array with attributes from parser
+     * @param object $compiler compiler object
+     * @return boolean true
+     */
+    public function compile($args, $compiler)
+    {
+        // check and get attributes
+        $_attr = $this->getAttributes($compiler, $args);
+        $save = array($_attr, $compiler->parser->current_buffer, $compiler->nocache, $compiler->smarty->merge_compiled_includes);
+        $this->openTag($compiler, 'block', $save);
+        if ($_attr['nocache'] == true) {
+            $compiler->nocache = true;
+        }
+        // set flag for {block} tag
+        $compiler->inheritance = true;
+        // must merge includes
+        $compiler->smarty->merge_compiled_includes = true;
+
+        $compiler->parser->current_buffer = new _smarty_template_buffer($compiler->parser);
+        $compiler->has_code = false;
+        return true;
     }
 
 }

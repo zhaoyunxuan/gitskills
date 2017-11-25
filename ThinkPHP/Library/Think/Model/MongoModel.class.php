@@ -87,13 +87,6 @@ class MongoModel extends Model{
     }
 
     // 写入数据前的回调方法 包括新增和更新
-    protected function _before_write(&$data) {
-        $pk   =  $this->getPk();
-        // 根据主键类型处理主键数据
-        if(isset($data[$pk]) && $this->_idType == self::TYPE_OBJECT) {
-            $data[$pk] =  new \MongoId($data[$pk]);
-        }    
-    }
 
     /**
      * count统计 配合where连贯操作
@@ -124,6 +117,17 @@ class MongoModel extends Model{
 
         $result = $this->command($command);
         return isset($result['values']) ? $result['values'] : false;
+    }
+
+    /**
+     * 执行Mongo指令
+     * @access public
+     * @param array $command  指令
+     * @return mixed
+     */
+    public function command($command, $options=array()) {
+        $options =  $this->_parseOptions($options);
+        return $this->db->command($command, $options);
     }
 
     /**
@@ -193,30 +197,6 @@ class MongoModel extends Model{
     }
 
     // 查询成功后的回调方法
-    protected function _after_select(&$resultSet,$options) {
-        array_walk($resultSet,array($this,'checkMongoId'));
-    }
-
-    /**
-     * 获取MongoId
-     * @access protected
-     * @param array $result 返回数据
-     * @return array
-     */
-    protected function checkMongoId(&$result){
-        if(is_object($result['_id'])) {
-            $result['_id'] = $result['_id']->__toString();
-        }
-        return $result;
-    }
-
-    // 表达式过滤回调方法
-    protected function _options_filter(&$options) {
-        $id = $this->getPk();
-        if(isset($options['where'][$id]) && is_scalar($options['where'][$id]) && $this->_idType== self::TYPE_OBJECT) {
-            $options['where'][$id] = new \MongoId($options['where'][$id]);
-        }
-    }
 
     /**
      * 查询数据
@@ -246,6 +226,21 @@ class MongoModel extends Model{
         $this->_after_find($this->data,$options);
         return $this->data;
      }
+
+    /**
+     * 获取MongoId
+     * @access protected
+     * @param array $result 返回数据
+     * @return array
+     */
+    protected function checkMongoId(&$result){
+        if(is_object($result['_id'])) {
+            $result['_id'] = $result['_id']->__toString();
+        }
+        return $result;
+    }
+
+    // 表达式过滤回调方法
 
     /**
      * 字段值增长
@@ -323,17 +318,6 @@ class MongoModel extends Model{
     }
 
     /**
-     * 执行Mongo指令
-     * @access public
-     * @param array $command  指令
-     * @return mixed
-     */
-    public function command($command, $options=array()) {
-        $options =  $this->_parseOptions($options);
-        return $this->db->command($command, $options);
-    }
-
-    /**
      * 执行MongoCode
      * @access public
      * @param string $code  MongoCode
@@ -342,30 +326,6 @@ class MongoModel extends Model{
      */
     public function mongoCode($code,$args=array()) {
         return $this->db->execute($code,$args);
-    }
-
-    // 数据库切换后回调方法
-    protected function _after_db() {
-        // 切换Collection
-        $this->db->switchCollection($this->getTableName(),$this->dbName?$this->dbName:C('db_name'));    
-    }
-
-    /**
-     * 得到完整的数据表名 Mongo表名不带dbName
-     * @access public
-     * @return string
-     */
-    public function getTableName() {
-        if(empty($this->trueTableName)) {
-            $tableName  = !empty($this->tablePrefix) ? $this->tablePrefix : '';
-            if(!empty($this->tableName)) {
-                $tableName .= $this->tableName;
-            }else{
-                $tableName .= parse_name($this->name);
-            }
-            $this->trueTableName    =   strtolower($tableName);
-        }
-        return $this->trueTableName;
     }
 
     /**
@@ -401,7 +361,9 @@ class MongoModel extends Model{
         $option = $this->_parseOptions();
         return $this->db->command(array('collStats'=>$option['table']));
     }
-    
+
+    // 数据库切换后回调方法
+
     /**
      * 取得当前数据库的对象
      * @access public
@@ -410,7 +372,7 @@ class MongoModel extends Model{
     public function getDB(){
         return $this->db->getDB();
     }
-    
+
     /**
      * 取得集合对象，可以进行创建索引等查询
      * @access public
@@ -418,5 +380,47 @@ class MongoModel extends Model{
      */
     public function getCollection(){
         return $this->db->getCollection();
+    }
+
+    protected function _before_write(&$data) {
+        $pk   =  $this->getPk();
+        // 根据主键类型处理主键数据
+        if(isset($data[$pk]) && $this->_idType == self::TYPE_OBJECT) {
+            $data[$pk] =  new \MongoId($data[$pk]);
+        }
+    }
+
+    protected function _after_select(&$resultSet,$options) {
+        array_walk($resultSet,array($this,'checkMongoId'));
+    }
+
+    protected function _options_filter(&$options) {
+        $id = $this->getPk();
+        if(isset($options['where'][$id]) && is_scalar($options['where'][$id]) && $this->_idType== self::TYPE_OBJECT) {
+            $options['where'][$id] = new \MongoId($options['where'][$id]);
+        }
+    }
+    
+    protected function _after_db() {
+        // 切换Collection
+        $this->db->switchCollection($this->getTableName(),$this->dbName?$this->dbName:C('db_name'));
+    }
+    
+    /**
+     * 得到完整的数据表名 Mongo表名不带dbName
+     * @access public
+     * @return string
+     */
+    public function getTableName() {
+        if(empty($this->trueTableName)) {
+            $tableName  = !empty($this->tablePrefix) ? $this->tablePrefix : '';
+            if(!empty($this->tableName)) {
+                $tableName .= $this->tableName;
+            }else{
+                $tableName .= parse_name($this->name);
+            }
+            $this->trueTableName    =   strtolower($tableName);
+        }
+        return $this->trueTableName;
     }
 }

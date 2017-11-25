@@ -43,78 +43,39 @@ class RelationModel extends Model {
     }
 
     /**
-     * 得到关联的数据表名
+     * 进行关联查询
      * @access public
-     * @return string
+     * @param mixed $name 关联名称
+     * @return Model
      */
-    public function getRelationTableName($relation) {
-        $relationTable  = !empty($this->tablePrefix) ? $this->tablePrefix : '';
-        $relationTable .= $this->tableName?$this->tableName:$this->name;
-        $relationTable .= '_'.$relation->getModelName();
-        return strtolower($relationTable);
+    public function relation($name) {
+        $this->options['link']  =   $name;
+        return $this;
     }
 
     // 查询成功后的回调方法
+
+    /**
+     * 关联数据获取 仅用于查询后
+     * @access public
+     * @param string $name 关联名称
+     * @return array
+     */
+    public function relationGet($name) {
+        if(empty($this->data))
+            return false;
+        return $this->getRelation($this->data,$name,true);
+    }
+
+    // 查询数据集成功后的回调方法
+
     protected function _after_find(&$result,$options) {
         // 获取关联数据 并附加到结果中
         if(!empty($options['link']))
             $this->getRelation($result,$options['link']);
     }
 
-    // 查询数据集成功后的回调方法
-    protected function _after_select(&$result,$options) {
-        // 获取关联数据 并附加到结果中
-        if(!empty($options['link']))
-            $this->getRelations($result,$options['link']);
-    }
-
     // 写入成功后的回调方法
-    protected function _after_insert($data,$options) {
-        // 关联写入
-        if(!empty($options['link']))
-            $this->opRelation('ADD',$data,$options['link']);
-    }
-
-    // 更新成功后的回调方法
-    protected function _after_update($data,$options) {
-        // 关联更新
-        if(!empty($options['link']))
-            $this->opRelation('SAVE',$data,$options['link']);
-    }
-
-    // 删除成功后的回调方法
-    protected function _after_delete($data,$options) {
-        // 关联删除
-        if(!empty($options['link']))
-            $this->opRelation('DEL',$data,$options['link']);
-    }
-
-    /**
-     * 对保存到数据库的数据进行处理
-     * @access protected
-     * @param mixed $data 要操作的数据
-     * @return boolean
-     */
-     protected function _facade($data) {
-        $this->_before_write($data);
-        return $data;
-     }
-
-    /**
-     * 获取返回数据集的关联记录
-     * @access protected
-     * @param array $resultSet  返回数据
-     * @param string|array $name  关联名称
-     * @return array
-     */
-    protected function getRelations(&$resultSet,$name='') {
-        // 获取记录集的主键列表
-        foreach($resultSet as $key=>$val) {
-            $val  = $this->getRelation($val,$name);
-            $resultSet[$key]    =   $val;
-        }
-        return $resultSet;
-    }
 
     /**
      * 获取返回数据的关联记录
@@ -149,7 +110,7 @@ class RelationModel extends Model {
                                 $relationData   =  $model->where($mappingCondition)->field($mappingFields)->find();
                                 if (!empty($val['relation_deep'])){
                                     $model->getRelation($relationData,$val['relation_deep']);
-                                }                                
+                                }
                                 break;
                             case self::BELONGS_TO:
                                 if(strtoupper($mappingClass)==strtoupper($this->name)) {
@@ -163,7 +124,7 @@ class RelationModel extends Model {
                                 $relationData   =  $model->where($mappingCondition)->field($mappingFields)->find();
                                 if (!empty($val['relation_deep'])){
                                     $model->getRelation($relationData,$val['relation_deep']);
-                                }                                
+                                }
                                 break;
                             case self::HAS_MANY:
                                 $pk   =  $result[$mappingKey];
@@ -173,10 +134,10 @@ class RelationModel extends Model {
                                 // 延时获取关联记录
                                 $relationData   =  $model->where($mappingCondition)->field($mappingFields)->order($mappingOrder)->limit($mappingLimit)->select();
                                 if (!empty($val['relation_deep'])){
-                                    foreach($relationData as $key=>$data){                                    
+                                    foreach($relationData as $key=>$data){
                                         $model->getRelation($data,$val['relation_deep']);
                                         $relationData[$key]     =   $data;
-                                    }                                      
+                                    }
                                 }
                                 break;
                             case self::MANY_TO_MANY:
@@ -203,11 +164,11 @@ class RelationModel extends Model {
                                 }
                                 $relationData   =   $this->query($sql);
                                 if (!empty($val['relation_deep'])){
-                                    foreach($relationData as $key=>$data){                                    
+                                    foreach($relationData as $key=>$data){
                                         $model->getRelation($data,$val['relation_deep']);
                                         $relationData[$key]     =   $data;
-                                    }                                      
-                                }                                
+                                    }
+                                }
                                 break;
                         }
                         if(!$return){
@@ -234,6 +195,50 @@ class RelationModel extends Model {
             }
         }
         return $result;
+    }
+
+    // 更新成功后的回调方法
+
+    /**
+     * 得到关联的数据表名
+     * @access public
+     * @return string
+     */
+    public function getRelationTableName($relation) {
+        $relationTable  = !empty($this->tablePrefix) ? $this->tablePrefix : '';
+        $relationTable .= $this->tableName?$this->tableName:$this->name;
+        $relationTable .= '_'.$relation->getModelName();
+        return strtolower($relationTable);
+    }
+
+    // 删除成功后的回调方法
+
+    protected function _after_select(&$result,$options) {
+        // 获取关联数据 并附加到结果中
+        if(!empty($options['link']))
+            $this->getRelations($result,$options['link']);
+    }
+
+    /**
+     * 获取返回数据集的关联记录
+     * @access protected
+     * @param array $resultSet  返回数据
+     * @param string|array $name  关联名称
+     * @return array
+     */
+    protected function getRelations(&$resultSet,$name='') {
+        // 获取记录集的主键列表
+        foreach($resultSet as $key=>$val) {
+            $val  = $this->getRelation($val,$name);
+            $resultSet[$key]    =   $val;
+        }
+        return $resultSet;
+    }
+
+    protected function _after_insert($data,$options) {
+        // 关联写入
+        if(!empty($options['link']))
+            $this->opRelation('ADD',$data,$options['link']);
     }
 
     /**
@@ -333,7 +338,7 @@ class RelationModel extends Model {
                                         $mappingRelationTable   =   preg_replace_callback("/__([A-Z_-]+)__/sU", function($match) use($prefix){ return $prefix.strtolower($match[1]);}, $val['relation_table']);
                                     }else{
                                         $mappingRelationTable   =   $this->getRelationTableName($model);
-                                    }                                    
+                                    }
                                     if(is_array($mappingData)) {
                                         $ids   = array();
                                         foreach ($mappingData as $vo)
@@ -354,7 +359,7 @@ class RelationModel extends Model {
                                                     // 事务回滚
                                                     $this->rollback();
                                             }
-                                            break;                                        
+                                            break;
                                         case 'SAVE':    // 更新关联数据
                                             if(isset($relationId)) {
                                                 $this->startTrans();
@@ -379,7 +384,7 @@ class RelationModel extends Model {
                             }
                             if (!empty($val['relation_deep'])){
                                 $model->opRelation($opType,$mappingData,$val['relation_deep']);
-                            }                               
+                            }
                     }
                 }
             }
@@ -387,26 +392,26 @@ class RelationModel extends Model {
         return $result;
     }
 
-    /**
-     * 进行关联查询
-     * @access public
-     * @param mixed $name 关联名称
-     * @return Model
-     */
-    public function relation($name) {
-        $this->options['link']  =   $name;
-        return $this;
+    protected function _after_update($data,$options) {
+        // 关联更新
+        if(!empty($options['link']))
+            $this->opRelation('SAVE',$data,$options['link']);
+    }
+
+    protected function _after_delete($data,$options) {
+        // 关联删除
+        if(!empty($options['link']))
+            $this->opRelation('DEL',$data,$options['link']);
     }
 
     /**
-     * 关联数据获取 仅用于查询后
-     * @access public
-     * @param string $name 关联名称
-     * @return array
+     * 对保存到数据库的数据进行处理
+     * @access protected
+     * @param mixed $data 要操作的数据
+     * @return boolean
      */
-    public function relationGet($name) {
-        if(empty($this->data))
-            return false;
-        return $this->getRelation($this->data,$name,true);
-    }
+     protected function _facade($data) {
+        $this->_before_write($data);
+        return $data;
+     }
 }

@@ -270,6 +270,18 @@
 			}
 		}
 
+		/**
+		* @return int Number of subtemplate included
+		* @access private
+		* @desc Count number of subtemplates included in current template
+		*/
+		function count_subtemplates()
+		{
+			preg_match_all('/<!-- INCLUDE ([a-zA-Z0-9_.]+) -->/', $this->template, $tvar);
+			$count_subtemplates = count($tvar[1]);
+			$ret = intval($count_subtemplates);
+			return $ret;
+		}
 
 		/**
 		* Splits Template-Style Variable Names into an Array-Name/Key-Name Components
@@ -322,7 +334,6 @@
 			return $ret;
 		}
 
-
 		/**
 		* Determine Template Command from Variable Name
 		* {variable}             :  array( "echo",              "variable" )  ->  echo $_obj['variable']
@@ -346,19 +357,6 @@
 				$cmd  =  "echo";
 			}
 			$ret = array($cmd, $tag);
-			return $ret;
-		}
-
-		/**
-		* @return int Number of subtemplate included
-		* @access private
-		* @desc Count number of subtemplates included in current template
-		*/
-		function count_subtemplates()
-		{
-			preg_match_all('/<!-- INCLUDE ([a-zA-Z0-9_.]+) -->/', $this->template, $tvar);
-			$count_subtemplates = count($tvar[1]);
-			$ret = intval($count_subtemplates);
 			return $ret;
 		}
 	}
